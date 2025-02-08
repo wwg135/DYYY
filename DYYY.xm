@@ -86,7 +86,13 @@
 @end
 
 @interface AWENormalModeTabBar : UIView
+
 @end
+
+@interface AWEHPTopBarCTAItemView : UIView
+
+@end
+
 %hook AWEAwemePlayVideoViewController
 
 - (void)setIsAutoPlay:(BOOL)arg0 {
@@ -374,7 +380,19 @@
                 subview.hidden = YES;
             }
         }
-    } else if ([accessibilityLabel isEqualToString:@"侧边栏"]) {
+    }
+}
+
+%end
+
+%hook AWEHPTopBarCTAItemView
+
+- (void)layoutSubviews {
+    %orig;
+
+    NSString *accessibilityLabel = self.accessibilityLabel;
+
+    if ([accessibilityLabel isEqualToString:@"侧边栏"]) {
         if ([[NSUserDefaults standardUserDefaults] boolForKey:@"DYYYisHiddenSidebar"]) {
             [self removeFromSuperview];
             return;
