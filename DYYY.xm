@@ -89,7 +89,7 @@
 
 @end
 
-@interface AWEHPTopBarCTAItemView : UIView
+@interface AWEFeedContainerViewController : UIViewController
 
 @end
 
@@ -385,7 +385,7 @@
 
 %end
 
-%hook AWEHPTopBarCTAItemView
+%hook AWEFeedContainerViewController
 
 - (void)layoutSubviews {
     %orig;
