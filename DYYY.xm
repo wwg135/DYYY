@@ -368,8 +368,6 @@
 - (void)layoutSubviews {
     %orig;
 
-    NSString *accessibilityLabel = self.accessibilityLabel;
-
     if ([[NSUserDefaults standardUserDefaults] boolForKey:@"DYYYisHiddenSidebarDot"]) {
         for (UIView *subview in [self subviews]) {
             if ([subview isKindOfClass:NSClassFromString(@"DUXBadge")]) {
