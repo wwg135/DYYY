@@ -367,7 +367,6 @@
 
 - (void)layoutSubviews {
     %orig;
-
     if ([[NSUserDefaults standardUserDefaults] boolForKey:@"DYYYisHiddenSidebarDot"]) {
         for (UIView *subview in [self subviews]) {
             if ([subview isKindOfClass:NSClassFromString(@"DUXBadge")]) {
