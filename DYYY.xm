@@ -89,10 +89,6 @@
 
 @end
 
-@interface AWEFeedContainerViewController : UIViewController
-
-@end
-
 %hook AWEAwemePlayVideoViewController
 
 - (void)setIsAutoPlay:(BOOL)arg0 {
@@ -380,19 +376,7 @@
                 subview.hidden = YES;
             }
         }
-    }
-}
-
-%end
-
-%hook AWEFeedContainerViewController
-
-- (void)layoutSubviews {
-    %orig;
-
-    NSString *accessibilityLabel = self.accessibilityLabel;
-
-    if ([accessibilityLabel isEqualToString:@"侧边栏"]) {
+    } else if ([accessibilityLabel isEqualToString:@"侧边栏"]) {
         if ([[NSUserDefaults standardUserDefaults] boolForKey:@"DYYYisHiddenSidebar"]) {
             [self removeFromSuperview];
             return;
