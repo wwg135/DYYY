@@ -376,11 +376,6 @@
                 subview.hidden = YES;
             }
         }
-    } else if ([accessibilityLabel isEqualToString:@"侧边栏"]) {
-        if ([[NSUserDefaults standardUserDefaults] boolForKey:@"DYYYisHiddenSidebar"]) {
-            [self removeFromSuperview];
-            return;
-        }
     }
 }
 
