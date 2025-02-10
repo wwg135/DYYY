@@ -598,7 +598,6 @@
 			[visibleButtons addObject:subview];
 		} else {
 			[subview removeFromSuperview];
-			[subview setNeedsLayout];
 		}
 	}
 
@@ -613,6 +612,8 @@
 		UIView *button = visibleButtons[i];
 		button.frame = CGRectMake(i * buttonWidth, button.frame.origin.y, buttonWidth, button.frame.size.height);
 	}
+
+	[self setNeedsLayout];
 }
 
 %end
