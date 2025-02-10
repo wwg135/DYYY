@@ -598,6 +598,7 @@
 			[visibleButtons addObject:subview];
 		} else {
 			[subview removeFromSuperview];
+			[subview setNeedsLayout];
 		}
 	}
 
