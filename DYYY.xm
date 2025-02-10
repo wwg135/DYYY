@@ -33,6 +33,10 @@
 @property (nonatomic, strong) UIView *view;
 @end
 
+@interface AWEFeedContainerViewController : UIViewController
+
+@end
+
 @interface UIView (Transparency)
 - (UIViewController *)firstAvailableUIViewController;
 @end
@@ -363,6 +367,16 @@
 	}
 
 	%orig(hidden);
+}
+%end
+
+%hook AWEFeedContainerViewController
+- (void)setForbidHideStatusBar:(BOOL)forbidhide {
+	if ([[NSUserDefaults standardUserDefaults] boolForKey:@"DYYYHideAvatarButton"]) {
+		forbidhide = NO;
+	}
+
+	%orig(forbidhide);
 }
 %end
 
