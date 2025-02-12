@@ -296,19 +296,6 @@ typedef NS_ENUM(NSInteger, DYYYSettingItemType) {
     cell.contentView.frame = UIEdgeInsetsInsetRect(cell.contentView.frame, UIEdgeInsetsMake(0, sectionInset, 0, sectionInset));
 }
 
-// 监听系统外观变化
-- (void)traitCollectionDidChange:(UITraitCollection *)previousTraitCollection {
-    [super traitCollectionDidChange:previousTraitCollection];
-    
-    if ([self.traitCollection hasDifferentColorAppearanceComparedToTraitCollection:previousTraitCollection]) {
-        [self setupAppearance];
-        self.tableView.backgroundColor = [UIColor systemGroupedBackgroundColor];
-        self.tableView.separatorColor = [UIColor separatorColor];
-        [self.tableView reloadData];
-        [self setupFooterLabel];
-    }
-}
-
 #pragma mark - UITableViewDelegate
 
 - (void)tableView:(UITableView *)tableView didSelectRowAtIndexPath:(NSIndexPath *)indexPath {
