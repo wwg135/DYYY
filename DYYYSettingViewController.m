@@ -64,7 +64,7 @@ typedef NS_ENUM(NSInteger, DYYYSettingItemType) {
     self.view.backgroundColor = [UIColor systemBackgroundColor];
     self.navigationController.navigationBar.barTintColor = [UIColor systemBackgroundColor];
     self.navigationController.navigationBar.tintColor = [UIColor labelColor];
-    self.navigationController.navigationBar.largeTitleTextAttributes = @{NSForegroundColorAttributeName: [UIColor labelColor];};
+    self.navigationController.navigationBar.largeTitleTextAttributes = @{NSForegroundColorAttributeName: [UIColor labelColor]};
     self.navigationItem.largeTitleDisplayMode = UINavigationItemLargeTitleDisplayModeAlways;
     self.navigationController.navigationBar.prefersLargeTitles = YES;
 }
