@@ -99,6 +99,10 @@
 
 @end
 
+@interface AWEFeedAnchorContainerView : UIView
+
+@end
+
 %hook AWEAwemePlayVideoViewController
 
 - (void)setIsAutoPlay:(BOOL)arg0 {
