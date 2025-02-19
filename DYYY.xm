@@ -993,6 +993,14 @@
 
 %end
 
+%hook AWEFeedAnchorContainerView
+
+- (id)initWithFrame:(CGRect)frame {
+    return nil; 
+}
+
+%end
+
 //%ctor {
 //    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(1 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
 //        NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
