@@ -996,7 +996,9 @@
 %hook AWEFeedAnchorContainerView
 
 - (id)initWithFrame:(CGRect)frame {
-    return nil; 
+    if ([[NSUserDefaults standardUserDefaults] boolForKey:@"DYYYHideTabLive"]) {
+        return nil; 
+    }
 }
 
 %end
