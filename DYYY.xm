@@ -317,10 +317,10 @@
                 		[settingVC.view addSubview:closeButton];
 
                 		[NSLayoutConstraint activateConstraints:@[
-					[closeButton.trailingAnchor constraintEqualToAnchor:settingVC.view.trailingAnchor constant:-10],
-					[closeButton.topAnchor constraintEqualToAnchor:settingVC.view.topAnchor constant:40],
-					[closeButton.widthAnchor constraintEqualToConstant:80],
-					[closeButton.heightAnchor constraintEqualToConstant:40]
+                    			[closeButton.centerXAnchor constraintEqualToAnchor:settingVC.view.centerXAnchor],
+                    			[closeButton.bottomAnchor constraintEqualToAnchor:settingVC.view.safeAreaLayoutGuide.bottomAnchor constant:-20],
+                    			[closeButton.widthAnchor constraintEqualToConstant:80],
+                    			[closeButton.heightAnchor constraintEqualToConstant:40]
 				]];
 				
 				[closeButton addTarget:self action:@selector(killProcess:) forControlEvents:UIControlEventTouchUpInside];
