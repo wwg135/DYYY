@@ -305,18 +305,18 @@
 %new
 - (void)handleDoubleFingerLongPressGesture:(UILongPressGestureRecognizer *)gesture {
     if (gesture.state == UIGestureRecognizerStateBegan) {
-        UIViewController *rootViewController = self.rootViewController;
-        if (rootViewController) {
-            UIViewController *settingVC = [[NSClassFromString(@"DYYYSettingViewController") alloc] init];
-            if (settingVC) {
-                UIButton *closeButton = [UIButton buttonWithType:UIButtonTypeSystem];
-                [closeButton setTitle:@"关闭进程" forState:UIControlStateNormal];
-                [closeButton setTitleColor:[UIColor redColor] forState:UIControlStateNormal];
-                closeButton.translatesAutoresizingMaskIntoConstraints = NO;
+		UIViewController *rootViewController = self.rootViewController;
+        	if (rootViewController) {
+        		UIViewController *settingVC = [[NSClassFromString(@"DYYYSettingViewController") alloc] init];
+        		if (settingVC) {
+                		UIButton *closeButton = [UIButton buttonWithType:UIButtonTypeSystem];
+                		[closeButton setTitle:@"关闭进程" forState:UIControlStateNormal];
+                		[closeButton setTitleColor:[UIColor redColor] forState:UIControlStateNormal];
+                		closeButton.translatesAutoresizingMaskIntoConstraints = NO;
                 
-                [settingVC.view addSubview:closeButton];
+                		[settingVC.view addSubview:closeButton];
 
-                [NSLayoutConstraint activateConstraints:@[
+                		[NSLayoutConstraint activateConstraints:@[
 					[closeButton.trailingAnchor constraintEqualToAnchor:settingVC.view.trailingAnchor constant:-10],
 					[closeButton.topAnchor constraintEqualToAnchor:settingVC.view.topAnchor constant:40],
 					[closeButton.widthAnchor constraintEqualToConstant:80],
@@ -325,10 +325,10 @@
 				
 				[closeButton addTarget:self action:@selector(killProcess:) forControlEvents:UIControlEventTouchUpInside];
                 
-                [rootViewController presentViewController:settingVC animated:YES completion:nil];
-            }
-        }
-    }
+                		[rootViewController presentViewController:settingVC animated:YES completion:nil];
+            		}
+        	}
+    	}
 }
 
 %new
