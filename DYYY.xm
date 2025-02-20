@@ -304,24 +304,31 @@
 
 %new
 - (void)handleDoubleFingerLongPressGesture:(UILongPressGestureRecognizer *)gesture {
-    	if (gesture.state == UIGestureRecognizerStateRecognized) {
-        	UIViewController *rootViewController = self.rootViewController;
-        	if (rootViewController) {
-            		UIViewController *settingVC = [[NSClassFromString(@"DYYYSettingViewController") alloc] init];
-            		if (settingVC) {
-                        UIButton *closeButton = [UIButton buttonWithType:UIButtonTypeSystem];
-                        [closeButton setTitle:@"关闭进程" forState:UIControlStateNormal];
-                        [closeButton setTitleColor:[UIColor redColor] forState:UIControlStateNormal];
-                        [closeButton addTarget:self action:@selector(killProcess:) forControlEvents:UIControlEventTouchUpInside];
+    if (gesture.state == UIGestureRecognizerStateBegan) {
+        UIViewController *rootViewController = self.rootViewController;
+        if (rootViewController) {
+            UIViewController *settingVC = [[NSClassFromString(@"DYYYSettingViewController") alloc] init];
+            if (settingVC) {
+                UIButton *closeButton = [UIButton buttonWithType:UIButtonTypeSystem];
+                [closeButton setTitle:@"关闭进程" forState:UIControlStateNormal];
+                [closeButton setTitleColor:[UIColor redColor] forState:UIControlStateNormal];
+                closeButton.translatesAutoresizingMaskIntoConstraints = NO;
                 
-                        closeButton.frame = CGRectMake(20, 40, 100, 40);
+                [settingVC.view addSubview:closeButton];
+
+                [NSLayoutConstraint activateConstraints:@[
+					[closeButton.trailingAnchor constraintEqualToAnchor:settingVC.view.trailingAnchor constant:-10],
+					[closeButton.topAnchor constraintEqualToAnchor:settingVC.view.topAnchor constant:40],
+					[closeButton.widthAnchor constraintEqualToConstant:80],
+					[closeButton.heightAnchor constraintEqualToConstant:40]
+				]];
+				
+				[closeButton addTarget:self action:@selector(killProcess:) forControlEvents:UIControlEventTouchUpInside];
                 
-                        [settingVC.view addSubview:closeButton];
-                
-                		[rootViewController presentViewController:settingVC animated:YES completion:nil];
-            		}
-        	}
-    	}
+                [rootViewController presentViewController:settingVC animated:YES completion:nil];
+            }
+        }
+    }
 }
 
 %new
