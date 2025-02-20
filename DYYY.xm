@@ -304,7 +304,7 @@
 
 %new
 - (void)handleDoubleFingerLongPressGesture:(UILongPressGestureRecognizer *)gesture {
-	if (gesture.state == UIGestureRecognizerStateBegan) {
+	if (gesture.state == UIGestureRecognizerStateRecognized) {
 		UIViewController *rootViewController = self.rootViewController;
         	if (rootViewController) {
         		UIViewController *settingVC = [[NSClassFromString(@"DYYYSettingViewController") alloc] init];
