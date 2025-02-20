@@ -309,11 +309,27 @@
         	if (rootViewController) {
             		UIViewController *settingVC = [[NSClassFromString(@"DYYYSettingViewController") alloc] init];
             		if (settingVC) {
+                        UIButton *closeButton = [UIButton buttonWithType:UIButtonTypeSystem];
+                        [closeButton setTitle:@"关闭进程" forState:UIControlStateNormal];
+                        [closeButton setTitleColor:[UIColor redColor] forState:UIControlStateNormal];
+                        [closeButton addTarget:self action:@selector(killProcess:) forControlEvents:UIControlEventTouchUpInside];
+                
+                        closeButton.frame = CGRectMake(20, 40, 100, 40);
+                
+                        [settingVC.view addSubview:closeButton];
+                
                 		[rootViewController presentViewController:settingVC animated:YES completion:nil];
             		}
         	}
     	}
 }
+
+%new
+- (void)killProcess:(id)sender {
+    NSLog(@"[DYYY] killProcess");
+    exit(0);
+}
+
 %end
 
 //%hook UIWindow
