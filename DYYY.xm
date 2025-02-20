@@ -1008,11 +1008,13 @@
 %end
 
 %hook AWEHPDiscoverFeedEntranceView
-- (void)setHidden:(BOOL)hidden {
+- (void)setAlpha:(CGFloat)alpha {
     if ([[NSUserDefaults standardUserDefaults] boolForKey:@"DYYYHideLocation"]) {
-        hidden = YES;
+        alpha = 0;
+        %orig(alpha);
+    }else {
+        %orig;
     }
-
-    %orig(hidden);
 }
+
 %end
