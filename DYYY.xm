@@ -103,6 +103,10 @@
 
 @end
 
+@interface AWEHPDiscoverFeedEntranceView : UIView
+
+@end
+
 %hook AWEAwemePlayVideoViewController
 
 - (void)setIsAutoPlay:(BOOL)arg0 {
@@ -1003,39 +1007,12 @@
 
 %end
 
-//%ctor {
-//    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(1 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
-//        NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
-//        [defaults registerDefaults:@{@"isShowDYYYAlert": @(NO)}];
-//
-//        if (![defaults boolForKey:@"isShowDYYYAlert"]) {
-//            [defaults setBool:YES forKey:@"isShowDYYYAlert"];
-//            [defaults synchronize];
-//
-//            UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"by @huamidev"
-//                                                                           message:@"仅供学习交流 请在24小时内删除\n弹窗只会显示一次"
-//                                                                    preferredStyle:UIAlertControllerStyleAlert];
-//
-//            UIAlertAction *okAction = [UIAlertAction actionWithTitle:@"确定" style:UIAlertActionStyleDefault handler:nil];
-//            [alert addAction:okAction];
-//
-//            UIAlertAction *goToChannelAction = [UIAlertAction actionWithTitle:@"前往频道" style:UIAlertActionStyleDefault handler:^(UIAlertAction * _Nonnull action) {
-//                UIApplication *application = [UIApplication sharedApplication];
-//                NSURL *tgTestURL = [NSURL URLWithString:@"tg://"];
-//                NSURL *telegramTestURL = [NSURL URLWithString:@"telegram://"];
-//
-//                if ([application canOpenURL:tgTestURL] || [application canOpenURL:telegramTestURL]) {
-//                    NSURL *tgURL = [NSURL URLWithString:@"tg://resolve?domain=huamidev"];
-//                    [application openURL:tgURL options:@{} completionHandler:nil];
-//                } else {
-//                    NSURL *webURL = [NSURL URLWithString:@"https://t.me/huamidev"];
-//                    [application openURL:webURL options:@{} completionHandler:nil];
-//                }
-//            }];
-//            [alert addAction:goToChannelAction];
-//
-//            UIWindow *keyWindow = [UIApplication sharedApplication].keyWindow;
-//            [keyWindow.rootViewController presentViewController:alert animated:YES completion:nil];
-//        }
-//    });
-//}
+%hook AWEHPDiscoverFeedEntranceView
+- (void)setHidden:(BOOL)hidden {
+    if ([[NSUserDefaults standardUserDefaults] boolForKey:@"DYYYHideLocation"]) {
+        hidden = YES;
+    }
+
+    %orig(hidden);
+}
+%end
