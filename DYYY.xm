@@ -946,8 +946,23 @@
     
     return [self findViewController:vc.presentedViewController ofClass:targetClass];
 }
-
+//%new
+//- (void)writeLog:(NSString *)log {
+//    NSString *documentsPath = NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES).firstObject;
+//    NSString *logPath = [documentsPath stringByAppendingPathComponent:@"1.txt"];
+//
+//    NSFileHandle *fileHandle = [NSFileHandle fileHandleForWritingAtPath:logPath];
+//    if (!fileHandle) {
+//        [[NSFileManager defaultManager] createFileAtPath:logPath contents:nil attributes:nil];
+//        fileHandle = [NSFileHandle fileHandleForWritingAtPath:logPath];
+//    }
+//
+//    [fileHandle seekToEndOfFile];
+//    [fileHandle writeData:[log dataUsingEncoding:NSUTF8StringEncoding]];
+//    [fileHandle closeFile];
+//}
 %end
+*/
 
 %hook AWEFeedIPhoneAutoPlayManager
 
