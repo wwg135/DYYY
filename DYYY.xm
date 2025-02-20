@@ -315,12 +315,6 @@
     	}
 }
 
-%new
-- (void)killProcess:(id)sender {
-    NSLog(@"[DYYY] killProcess");
-    exit(0);
-}
-
 %end
 
 //%hook UIWindow
