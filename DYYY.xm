@@ -993,14 +993,14 @@
 
 %end
 
-%hook AWEHPDiscoverFeedEntranceView
-- (void)setAlpha:(CGFloat)alpha {
-    if ([[NSUserDefaults standardUserDefaults] boolForKey:@"DYYYHideDiscover"]) {
-        alpha = 0;
-        %orig(alpha);
-    }else {
-        %orig;
-    }
-}
+//%hook AWEHPDiscoverFeedEntranceView
+//- (void)setAlpha:(CGFloat)alpha {
+//    if ([[NSUserDefaults standardUserDefaults] boolForKey:@"DYYYHideDiscover"]) {
+//        alpha = 0;
+//        %orig(alpha);
+//   }else {
+//       %orig;
+//    }
+//}
 
-%end
+//%end
