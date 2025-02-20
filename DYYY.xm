@@ -303,18 +303,17 @@
 }
 
 %new
-- (void)handleDoubleFingerLongPressGesture:(UILongPressGestureRecognizer *)gesture {
-	if (gesture.state == UIGestureRecognizerStateRecognized) {
-		UIViewController *rootViewController = self.rootViewController;
-        	if (rootViewController) {
-        		UIViewController *settingVC = [[NSClassFromString(@"DYYYSettingViewController") alloc] init];
-        		if (settingVC) {
-                		[rootViewController presentViewController:settingVC animated:YES completion:nil];
-            		}
-        	}
-    	}
+- (void)handleDoubleTapGesture:(UITapGestureRecognizer *)gesture {
+    if (gesture.state == UIGestureRecognizerStateRecognized) {
+        UIViewController *rootViewController = self.rootViewController;
+        if (rootViewController) {
+            UIViewController *settingVC = [[NSClassFromString(@"DYYYSettingViewController") alloc] init];
+            if (settingVC) {
+                [rootViewController presentViewController:settingVC animated:YES completion:nil];
+            }
+        }
+    }
 }
-
 %end
 
 //%hook UIWindow
