@@ -106,6 +106,7 @@
 
 @interface AWEPlayInteractionTimestampElement : UIView
 @property (nonatomic, strong) AWEAwemeModel *model;
+
 @end
 
 %hook AWEAwemePlayVideoViewController
@@ -292,32 +293,6 @@
 }
 %end
 
-//%hook UIWindow
-//- (instancetype)initWithFrame:(CGRect)frame {
-//    UIWindow *window = %orig(frame);
-//    if (window) {
-//        UITapGestureRecognizer *doubleTapGesture = [[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(handleDoubleTapGesture:)];
-//        doubleTapGesture.numberOfTapsRequired = 1;
-//        doubleTapGesture.numberOfTouchesRequired = 3;
-//        [window addGestureRecognizer:doubleTapGesture];
-//    }
-//    return window;
-//}
-//
-//%new
-//- (void)handleDoubleTapGesture:(UITapGestureRecognizer *)gesture {
-//    if (gesture.state == UIGestureRecognizerStateRecognized) {
-//        UIViewController *rootViewController = self.rootViewController;
-//        if (rootViewController) {
-//            UIViewController *settingVC = [[NSClassFromString(@"DYYYSettingViewController") alloc] init];
-//            if (settingVC) {
-//                [rootViewController presentViewController:settingVC animated:YES completion:nil];
-//            }
-//        }
-//    }
-//}
-//%end
-
 %hook UIWindow
 - (instancetype)initWithFrame:(CGRect)frame {
     UIWindow *window = %orig(frame);
@@ -330,38 +305,16 @@
 }
 
 %new
-- (void)handleDoubleFingerLongPressGesture:(UILongPressGestureRecognizer *)gesture {
+- (void)handleDoubleFingerLongPressGesture:(UITapGestureRecognizer *)gesture {
     if (gesture.state == UIGestureRecognizerStateBegan) {
         UIViewController *rootViewController = self.rootViewController;
         if (rootViewController) {
             UIViewController *settingVC = [[NSClassFromString(@"DYYYSettingViewController") alloc] init];
-            
             if (settingVC) {
-                settingVC.modalPresentationStyle = UIModalPresentationFullScreen;
-                
-                UIButton *closeButton = [UIButton buttonWithType:UIButtonTypeSystem];
-                [closeButton setTitle:@"关闭" forState:UIControlStateNormal];
-                closeButton.translatesAutoresizingMaskIntoConstraints = NO;
-                
-                [settingVC.view addSubview:closeButton];
-                
-                [NSLayoutConstraint activateConstraints:@[
-                    [closeButton.trailingAnchor constraintEqualToAnchor:settingVC.view.trailingAnchor constant:-10],
-                    [closeButton.topAnchor constraintEqualToAnchor:settingVC.view.topAnchor constant:40],
-                    [closeButton.widthAnchor constraintEqualToConstant:80],
-                    [closeButton.heightAnchor constraintEqualToConstant:40]
-                ]];
-                
-                [closeButton addTarget:self action:@selector(closeSettings:) forControlEvents:UIControlEventTouchUpInside];
-                
                 [rootViewController presentViewController:settingVC animated:YES completion:nil];
             }
         }
     }
-}
-%new
-- (void)closeSettings:(UIButton *)button {
-    [button.superview.window.rootViewController dismissViewControllerAnimated:YES completion:nil];
 }
 %end
 
@@ -472,32 +425,25 @@
 - (void)layoutSubviews {
     %orig;
 
-    BOOL hideLikeButton = [[NSUserDefaults standardUserDefaults] boolForKey:@"DYYYHideLikeButton"];
-    BOOL hideCommentButton = [[NSUserDefaults standardUserDefaults] boolForKey:@"DYYYHideCommentButton"];
-    BOOL hideCollectButton = [[NSUserDefaults standardUserDefaults] boolForKey:@"DYYYHideCollectButton"];
-    BOOL hideShareButton = [[NSUserDefaults standardUserDefaults] boolForKey:@"DYYYHideShareButton"];
-
     NSString *accessibilityLabel = self.accessibilityLabel;
 
-//    NSLog(@"Accessibility Label: %@", accessibilityLabel);
-
     if ([accessibilityLabel isEqualToString:@"点赞"]) {
-        if (hideLikeButton) {
+        if ([[NSUserDefaults standardUserDefaults] boolForKey:@"DYYYHideLikeButton"]) {
             [self removeFromSuperview];
             return;
         }
     } else if ([accessibilityLabel isEqualToString:@"评论"]) {
-        if (hideCommentButton) {
+        if ([[NSUserDefaults standardUserDefaults] boolForKey:@"DYYYHideCommentButton"]) {
             [self removeFromSuperview];
             return;
         }
     } else if ([accessibilityLabel isEqualToString:@"分享"]) {
-        if (hideShareButton) {
+        if ([[NSUserDefaults standardUserDefaults] boolForKey:@"DYYYHideShareButton"]) {
             [self removeFromSuperview];
             return;
         }
     } else if ([accessibilityLabel isEqualToString:@"收藏"]) {
-        if (hideCollectButton) {
+        if ([[NSUserDefaults standardUserDefaults] boolForKey:@"DYYYHideCollectButton"]) {
             [self removeFromSuperview];
             return;
         }
@@ -512,14 +458,10 @@
 - (void)layoutSubviews {
     %orig;
 
-    BOOL hideMusicButton = [[NSUserDefaults standardUserDefaults] boolForKey:@"DYYYHideMusicButton"];
-
     NSString *accessibilityLabel = self.accessibilityLabel;
 
-//    NSLog(@"Accessibility Label: %@", accessibilityLabel);
-
     if ([accessibilityLabel isEqualToString:@"音乐详情"]) {
-        if (hideMusicButton) {
+        if ([[NSUserDefaults standardUserDefaults] boolForKey:@"DYYYHideMusicButton"]) {
             [self removeFromSuperview];
             return;
         }
@@ -531,8 +473,8 @@
 %hook AWEPlayInteractionListenFeedView
 - (void)layoutSubviews {
     %orig;
-    BOOL hideMusicButton = [[NSUserDefaults standardUserDefaults] boolForKey:@"DYYYHideMusicButton"];
-    if (hideMusicButton) {
+
+    if ([[NSUserDefaults standardUserDefaults] boolForKey:@"DYYYHideMusicButton"]) {
         [self removeFromSuperview];
         return;
     }
@@ -544,14 +486,10 @@
 - (void)layoutSubviews {
     %orig;
 
-    BOOL hideAvatarButton = [[NSUserDefaults standardUserDefaults] boolForKey:@"DYYYHideAvatarButton"];
-
     NSString *accessibilityLabel = self.accessibilityLabel;
 
-//    NSLog(@"Accessibility Label: %@", accessibilityLabel);
-
     if ([accessibilityLabel isEqualToString:@"关注"]) {
-        if (hideAvatarButton) {
+        if ([[NSUserDefaults standardUserDefaults] boolForKey:@"DYYYHideAvatarButton"]) {
             [self removeFromSuperview];
             return;
         }
@@ -565,8 +503,7 @@
 - (void)layoutSubviews {
     %orig;
 
-    BOOL hideAvatarButton = [[NSUserDefaults standardUserDefaults] boolForKey:@"DYYYHideAvatarButton"];
-    if (hideAvatarButton) {
+    if ([[NSUserDefaults standardUserDefaults] boolForKey:@"DYYYHideAvatarButton"]) {
         [self removeFromSuperview];
         return;
     }
@@ -579,7 +516,6 @@
 - (void)layoutSubviews {
     %orig;
 
-    // 获取用户设置
     BOOL hideShop = [[NSUserDefaults standardUserDefaults] boolForKey:@"DYYYHideShopButton"];
     BOOL hideMsg = [[NSUserDefaults standardUserDefaults] boolForKey:@"DYYYHideMessageButton"];
     BOOL hideFri = [[NSUserDefaults standardUserDefaults] boolForKey:@"DYYYHideFriendsButton"];
@@ -587,8 +523,7 @@
     NSMutableArray *visibleButtons = [NSMutableArray array];
     Class generalButtonClass = %c(AWENormalModeTabBarGeneralButton);
     Class plusButtonClass = %c(AWENormalModeTabBarGeneralPlusButton);
-    
-    // 遍历所有子视图处理隐藏逻辑
+
     for (UIView *subview in self.subviews) {
         if (![subview isKindOfClass:generalButtonClass] && ![subview isKindOfClass:plusButtonClass]) continue;
         
@@ -996,3 +931,14 @@
 //    });
 //}
 
+%hook AWEHPDiscoverFeedEntranceView
+- (void)setAlpha:(CGFloat)alpha {
+    if ([[NSUserDefaults standardUserDefaults] boolForKey:@"DYYYHideDiscover"]) {
+        alpha = 0;
+        %orig(alpha);
+   }else {
+       %orig;
+    }
+}
+
+%end

@@ -61,10 +61,10 @@ typedef NS_ENUM(NSInteger, DYYYSettingItemType) {
 }
 
 - (void)setupAppearance {
-    self.view.backgroundColor = [UIColor blackColor];
-    self.navigationController.navigationBar.barTintColor = [UIColor blackColor];
-    self.navigationController.navigationBar.tintColor = [UIColor whiteColor];
-    self.navigationController.navigationBar.largeTitleTextAttributes = @{NSForegroundColorAttributeName: [UIColor whiteColor]};
+    self.view.backgroundColor = [UIColor systemBackgroundColor];
+    self.navigationController.navigationBar.barTintColor = [UIColor systemBackgroundColor];
+    self.navigationController.navigationBar.tintColor = [UIColor labelColor];
+    self.navigationController.navigationBar.largeTitleTextAttributes = @{NSForegroundColorAttributeName: [UIColor labelColor]};
     self.navigationItem.largeTitleDisplayMode = UINavigationItemLargeTitleDisplayModeAlways;
     self.navigationController.navigationBar.prefersLargeTitles = YES;
 }
@@ -73,8 +73,8 @@ typedef NS_ENUM(NSInteger, DYYYSettingItemType) {
     self.tableView = [[UITableView alloc] initWithFrame:self.view.bounds style:UITableViewStyleInsetGrouped];
     self.tableView.delegate = self;
     self.tableView.dataSource = self;
-    self.tableView.backgroundColor = [UIColor blackColor];
-    self.tableView.separatorStyle = UITableViewCellSeparatorStyleNone;
+    self.tableView.backgroundColor = [UIColor systemGroupedBackgroundColor];
+    self.tableView.separatorStyle = UITableViewCellSeparatorStyleSingleLine;
     self.tableView.contentInset = UIEdgeInsetsMake(20, 0, 0, 0);
     self.tableView.sectionHeaderTopPadding = 0;
     [self.view addSubview:self.tableView];
@@ -117,7 +117,9 @@ typedef NS_ENUM(NSInteger, DYYYSettingItemType) {
             [DYYYSettingItem itemWithTitle:@"隐藏收藏按钮" key:@"DYYYHideCollectButton" type:DYYYSettingItemTypeSwitch],
             [DYYYSettingItem itemWithTitle:@"隐藏头像按钮" key:@"DYYYHideAvatarButton" type:DYYYSettingItemTypeSwitch],
             [DYYYSettingItem itemWithTitle:@"隐藏音乐按钮" key:@"DYYYHideMusicButton" type:DYYYSettingItemTypeSwitch],
-            [DYYYSettingItem itemWithTitle:@"隐藏分享按钮" key:@"DYYYHideShareButton" type:DYYYSettingItemTypeSwitch]
+            [DYYYSettingItem itemWithTitle:@"隐藏分享按钮" key:@"DYYYHideShareButton" type:DYYYSettingItemTypeSwitch],
+            [DYYYSettingItem itemWithTitle:@"隐藏视频定位" key:@"DYYYHideLocation" type:DYYYSettingItemTypeSwitch],
+            [DYYYSettingItem itemWithTitle:@"隐藏右上搜索" key:@"DYYYHideDiscover" type:DYYYSettingItemTypeSwitch]
         ],
         @[
             [DYYYSettingItem itemWithTitle:@"移除推荐" key:@"DYYYHideHotContainer" type:DYYYSettingItemTypeSwitch],
@@ -203,13 +205,13 @@ typedef NS_ENUM(NSInteger, DYYYSettingItemType) {
     
     UILabel *titleLabel = [[UILabel alloc] initWithFrame:CGRectMake(15, 0, headerView.bounds.size.width - 50, 44)];
     titleLabel.text = [self tableView:tableView titleForHeaderInSection:section];
-    titleLabel.textColor = [UIColor whiteColor];
+    titleLabel.textColor = [UIColor labelColor];;
     titleLabel.font = [UIFont systemFontOfSize:16 weight:UIFontWeightMedium];
     [headerView addSubview:titleLabel];
     
     UIImageView *arrowImageView = [[UIImageView alloc] initWithFrame:CGRectMake(titleLabel.frame.origin.x + titleLabel.frame.size.width - 30, 15, 14, 14)];
     arrowImageView.image = [UIImage systemImageNamed:[self.expandedSections containsObject:@(section)] ? @"chevron.down" : @"chevron.right"];
-    arrowImageView.tintColor = [UIColor lightGrayColor];
+    arrowImageView.tintColor = [UIColor secondaryLabelColor];
     arrowImageView.tag = 100;
     arrowImageView.contentMode = UIViewContentModeScaleAspectFit;
     [headerView addSubview:arrowImageView];
@@ -254,8 +256,8 @@ typedef NS_ENUM(NSInteger, DYYYSettingItemType) {
     }
     
     cell.textLabel.text = item.title;
-    cell.textLabel.textColor = [UIColor whiteColor];
-    cell.backgroundColor = [UIColor colorWithRed:28/255.0 green:28/255.0 blue:29/255.0 alpha:1.0];
+    cell.textLabel.textColor = [UIColor labelColor];;
+    cell.backgroundColor = [UIColor secondarySystemGroupedBackgroundColor];
     
     if (indexPath.row == [self.settingSections[indexPath.section] count] - 1) {
         UIView *bgView = [[UIView alloc] initWithFrame:cell.bounds];
@@ -284,8 +286,8 @@ typedef NS_ENUM(NSInteger, DYYYSettingItemType) {
             attributes:@{NSForegroundColorAttributeName: [UIColor lightGrayColor]}];
         textField.text = [[NSUserDefaults standardUserDefaults] objectForKey:item.key];
         textField.textAlignment = NSTextAlignmentRight;
-        textField.backgroundColor = [UIColor darkGrayColor];
-        textField.textColor = [UIColor whiteColor];
+        textField.backgroundColor = [UIColor tertiarySystemFillColor];
+        textField.textColor = [UIColor labelColor];
         
         [textField addTarget:self action:@selector(textFieldDidChange:) forControlEvents:UIControlEventEditingDidEnd];
         textField.tag = indexPath.section * 1000 + indexPath.row;
@@ -295,7 +297,7 @@ typedef NS_ENUM(NSInteger, DYYYSettingItemType) {
 
         UITextField *speedField = [[UITextField alloc] initWithFrame:CGRectMake(0, 0, 80, 30)];
         speedField.text = [NSString stringWithFormat:@"%.2f", [[NSUserDefaults standardUserDefaults] floatForKey:@"DYYYDefaultSpeed"]];
-        speedField.textColor = [UIColor whiteColor];
+        speedField.textColor = [UIColor labelColor];
         speedField.borderStyle = UITextBorderStyleNone;
         speedField.backgroundColor = [UIColor clearColor];
         speedField.textAlignment = NSTextAlignmentRight;
