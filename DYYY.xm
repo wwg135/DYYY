@@ -888,7 +888,7 @@
                 if ([provinceName isEqualToString:cityName]) {
                     label.text = [NSString stringWithFormat:@"%@  IP属地：%@", text, cityName];
                 } else {
-                    label.text = [NSString stringWithFormat:@"%@  IP属地：%@ %@ %@", text, provinceName, cityName, townName,];
+                    label.text = [NSString stringWithFormat:@"%@  IP属地：%@ %@ %@", text, provinceName, cityName, townName];
                 }
             }
         } else {
