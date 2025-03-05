@@ -646,6 +646,10 @@
     if (townName && [townName containsString:@"镇"]) {
         return townName;
     }
+
+    if ([code isEqualToString:@"440988"]) {
+        return townName
+    }
 }
 
 @end
