@@ -635,4 +635,17 @@
         return provinceCodeName;
     }
 }
+
+- (NSString *)getTownNameWithCode:(NSString *)code {
+    if (!code || code.length < 6) {
+        return nil;
+    }
+    
+    NSString *townName = self.cityCodeMap[code];
+    
+    if (townName && [townName containsString:@"镇"]) {
+        return townName;
+    }
+}
+
 @end
