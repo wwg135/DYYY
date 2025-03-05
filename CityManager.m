@@ -643,13 +643,11 @@
     
     NSString *townName = self.cityCodeMap[code];
     
-    if (townName && [townName containsString:@"镇"]) {
-        return townName;
-    }
-
     if ([code isEqualToString:@"440988"]) {
-        return townName
+        return townName ?: nil;
     }
+    
+    return townName && [townName containsString:@"镇"] ? townName : nil;
 }
 
 @end
