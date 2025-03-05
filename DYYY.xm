@@ -7,7 +7,7 @@
 //
 #import <UIKit/UIKit.h>
 #import <objc/runtime.h>
-
+#import "CityManager.h"
 @interface AWENormalModeTabBarGeneralButton : UIButton
 @end
 
@@ -99,11 +99,13 @@
 
 @end
 
-@interface AWEFeedAnchorContainerView : UIView
-
+@interface AWEAwemeModel : NSObject
+@property (nonatomic, copy) NSString *ipAttribution;
+@property (nonatomic, copy) NSString *cityCode;
 @end
 
-@interface AWEHPDiscoverFeedEntranceView : UIView
+@interface AWEPlayInteractionTimestampElement : UIView
+@property (nonatomic, strong) AWEAwemeModel *model;
 
 @end
 
@@ -835,88 +837,6 @@
 }
 %end
 
-/*   弃用 - 找到更优解决方案
-%hook AWEPlayInteractionProgressController
-- (void)updateProgressSliderWithTime:(CGFloat)arg1 totalDuration:(CGFloat)arg2 {
-    %orig;
-    
-    if ([[NSUserDefaults standardUserDefaults] boolForKey:@"DYYYisEnableAutoPlay"]) {
-//        NSString *logText = [NSString stringWithFormat:@"当前进度: %.2f, 总时长: %.2f\n", arg1, arg2];
-//        [self writeLog:logText];
-        
-        BOOL isTotalDurationInteger = (arg2 == floor(arg2));
-        CGFloat tolerance = isTotalDurationInteger ? 1.0 : 0.3;
-        
-        if (fabs(arg1 - arg2) <= tolerance) {
-//            [self writeLog:@"视频播放完成，开始查找控制器\n"];
-            
-            Class FeedTableVC = NSClassFromString(@"AWEFeedTableViewController");
-            Class DetailTableVC = NSClassFromString(@"AWEAwemeDetailTableViewController");
-
-            UIViewController *feedVC = nil;
-            UIViewController *detailVC = nil;
-            
-            NSArray *windows = [UIApplication sharedApplication].windows;
-            for (UIWindow *window in windows) {
-                UIViewController *rootVC = window.rootViewController;
-                if (!rootVC) continue;
-                
-//                [self writeLog:@"开始查找Detail控制器\n"];
-                detailVC = [self findViewController:rootVC ofClass:DetailTableVC];
-                
-                if (!detailVC) {
-//                    [self writeLog:@"Detail未找到，开始查找Feed控制器\n"];
-                    feedVC = [self findViewController:rootVC ofClass:FeedTableVC];
-                }
-                
-                UIViewController *targetVC = detailVC ? detailVC : feedVC;
-                if (targetVC) {
-//                    NSString *foundMsg = [NSString stringWithFormat:@"找到目标控制器: %@\n", [targetVC class]];
-//                    [self writeLog:foundMsg];
-                    [targetVC performSelector:@selector(scrollToNextVideo)];
-                    break;
-                }
-            }
-        }
-    }
-}
-
-%new
-- (UIViewController *)findViewController:(UIViewController *)vc ofClass:(Class)targetClass {
-    if (!vc) return nil;
-    
-//    NSString *logMsg = [NSString stringWithFormat:@"检查控制器: %@\n", [vc class]];
-//    [self writeLog:logMsg];
-    
-    if ([vc isKindOfClass:targetClass]) {
-        return vc;
-    }
-    
-    for (UIViewController *childVC in vc.childViewControllers) {
-        UIViewController *found = [self findViewController:childVC ofClass:targetClass];
-        if (found) return found;
-    }
-    
-    return [self findViewController:vc.presentedViewController ofClass:targetClass];
-}
-//%new
-//- (void)writeLog:(NSString *)log {
-//    NSString *documentsPath = NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES).firstObject;
-//    NSString *logPath = [documentsPath stringByAppendingPathComponent:@"1.txt"];
-//
-//    NSFileHandle *fileHandle = [NSFileHandle fileHandleForWritingAtPath:logPath];
-//    if (!fileHandle) {
-//        [[NSFileManager defaultManager] createFileAtPath:logPath contents:nil attributes:nil];
-//        fileHandle = [NSFileHandle fileHandleForWritingAtPath:logPath];
-//    }
-//
-//    [fileHandle seekToEndOfFile];
-//    [fileHandle writeData:[log dataUsingEncoding:NSUTF8StringEncoding]];
-//    [fileHandle closeFile];
-//}
-%end
-*/
-
 %hook AWEFeedIPhoneAutoPlayManager
 
 - (BOOL)isAutoPlayOpen {
@@ -951,15 +871,65 @@
 
 %end
 
-%hook AWEFeedAnchorContainerView
-
-- (id)initWithFrame:(CGRect)frame {
-    if ([[NSUserDefaults standardUserDefaults] boolForKey:@"DYYYHideLocation"]) {
-        return nil; 
-    }
+%hook AWEPlayInteractionTimestampElement
+-(id)timestampLabel{
+	UILabel *label = %orig;
+	if([[NSUserDefaults standardUserDefaults] boolForKey:@"DYYYisEnableArea"]){
+		NSString *text = label.text;
+		AWEAwemeModel *model = self.model;
+		NSString *ipAttribution = model.ipAttribution;
+		NSString *cityCode = model.cityCode;
+		if (!ipAttribution && cityCode) {
+			NSString *ipAttribution = [CityManager.sharedInstance getCityNameWithCode:cityCode];
+			if (ipAttribution) {
+				label.text = [NSString stringWithFormat:@"%@  IP属地：%@",text,ipAttribution];
+			}
+		}
+	}
+	return label;
+}
++(BOOL)shouldActiveWithData:(id)arg1 context:(id)arg2{
+	return [[NSUserDefaults standardUserDefaults] boolForKey:@"DYYYisEnableArea"];
 }
 
 %end
+
+//%ctor {
+//    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(1 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+//        NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
+//        [defaults registerDefaults:@{@"isShowDYYYAlert": @(NO)}];
+//
+//        if (![defaults boolForKey:@"isShowDYYYAlert"]) {
+//            [defaults setBool:YES forKey:@"isShowDYYYAlert"];
+//            [defaults synchronize];
+//
+//            UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"by @huamidev"
+//                                                                           message:@"仅供学习交流 请在24小时内删除\n弹窗只会显示一次"
+//                                                                    preferredStyle:UIAlertControllerStyleAlert];
+//
+//            UIAlertAction *okAction = [UIAlertAction actionWithTitle:@"确定" style:UIAlertActionStyleDefault handler:nil];
+//            [alert addAction:okAction];
+//
+//            UIAlertAction *goToChannelAction = [UIAlertAction actionWithTitle:@"前往频道" style:UIAlertActionStyleDefault handler:^(UIAlertAction * _Nonnull action) {
+//                UIApplication *application = [UIApplication sharedApplication];
+//                NSURL *tgTestURL = [NSURL URLWithString:@"tg://"];
+//                NSURL *telegramTestURL = [NSURL URLWithString:@"telegram://"];
+//
+//                if ([application canOpenURL:tgTestURL] || [application canOpenURL:telegramTestURL]) {
+//                    NSURL *tgURL = [NSURL URLWithString:@"tg://resolve?domain=huamidev"];
+//                    [application openURL:tgURL options:@{} completionHandler:nil];
+//                } else {
+//                    NSURL *webURL = [NSURL URLWithString:@"https://t.me/huamidev"];
+//                    [application openURL:webURL options:@{} completionHandler:nil];
+//                }
+//            }];
+//            [alert addAction:goToChannelAction];
+//
+//            UIWindow *keyWindow = [UIApplication sharedApplication].keyWindow;
+//            [keyWindow.rootViewController presentViewController:alert animated:YES completion:nil];
+//        }
+//    });
+//}
 
 %hook AWEHPDiscoverFeedEntranceView
 - (void)setAlpha:(CGFloat)alpha {
