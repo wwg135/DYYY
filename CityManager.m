@@ -431,7 +431,6 @@
         @"440700":@"江门",
         @"440800":@"湛江",
         @"440900":@"茂名",
-        @"440988":@"高州",
         @"441200":@"肇庆",
         @"441300":@"惠州",
         @"441400":@"梅州",
@@ -440,7 +439,6 @@
         @"441700":@"阳江",
         @"441800":@"清远",
         @"441900":@"东莞",
-        @"441907":@"大朗镇",
         @"442000":@"中山",
         @"445100":@"潮州",
         @"445200":@"揭阳",
@@ -634,20 +632,6 @@
     if (!provinceCodeName) {
         return provinceCodeName;
     }
-}
-
-- (NSString *)getTownNameWithCode:(NSString *)code {
-    if (!code || code.length < 6) {
-        return nil;
-    }
-    
-    NSString *townName = self.cityCodeMap[code];
-    
-    if ([code isEqualToString:@"440988"]) {
-        return townName ?: nil;
-    }
-    
-    return townName && [townName containsString:@"镇"] ? townName : nil;
 }
 
 @end
