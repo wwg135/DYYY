@@ -1048,8 +1048,7 @@
     %orig;
 
     if ([[NSUserDefaults standardUserDefaults] boolForKey:@"DYYYHideLeftMenu"]) {
-        [self removeFromSuperview];
-        return;
+        self.hidden = YES;
     }
 }
 
