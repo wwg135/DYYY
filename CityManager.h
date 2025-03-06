@@ -7,7 +7,6 @@
 + (instancetype)sharedInstance;
 - (NSString *)getCityNameWithCode:(NSString *)code;
 - (NSString *)getProvinceNameWithCode:(NSString *)code;
-- (NSString *)getTownNameWithCode:(NSString *)code;
 - (void)loadCityData;
 
 @end 
