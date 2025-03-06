@@ -115,6 +115,18 @@
 
 @end
 
+@interface AWEUserWorkCollectionViewComponentCell : UIView
+
+@end
+
+@interface AWEFeedRefreshFooter : UIView
+
+@end
+
+@interface AWERLSegmentView : UIView
+
+@end
+
 %hook AWEAwemePlayVideoViewController
 
 - (void)setIsAutoPlay:(BOOL)arg0 {
@@ -983,6 +995,45 @@
         %orig(alpha);
    }else {
        %orig;
+    }
+}
+
+%end
+
+%hook AWEUserWorkCollectionViewComponentCell
+
+- (void)layoutSubviews {
+    %orig;
+
+    if ([[NSUserDefaults standardUserDefaults] boolForKey:@"DYYYHideMyPage"]) {
+        [self removeFromSuperview];
+        return;
+    }
+}
+
+%end
+
+%hook AWEFeedRefreshFooter
+
+- (void)layoutSubviews {
+    %orig;
+
+    if ([[NSUserDefaults standardUserDefaults] boolForKey:@"DYYYHideMyPage"]) {
+        [self removeFromSuperview];
+        return;
+    }
+}
+
+%end
+
+%hook AWERLSegmentView
+
+- (void)layoutSubviews {
+    %orig;
+
+    if ([[NSUserDefaults standardUserDefaults] boolForKey:@"DYYYHideMyPage"]) {
+        [self removeFromSuperview];
+        return;
     }
 }
 
