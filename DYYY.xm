@@ -127,6 +127,10 @@
 
 @end
 
+@interface AWEHPTopBarCTAltemView : UIView
+
+@end
+
 %hook AWEAwemePlayVideoViewController
 
 - (void)setIsAutoPlay:(BOOL)arg0 {
@@ -1031,6 +1035,19 @@
     %orig;
 
     if ([[NSUserDefaults standardUserDefaults] boolForKey:@"DYYYHideMyPage"]) {
+        [self removeFromSuperview];
+        return;
+    }
+}
+
+%end
+
+%hook AWEHPTopBarCTAltemView
+
+- (void)layoutSubviews {
+    %orig;
+
+    if ([[NSUserDefaults standardUserDefaults] boolForKey:@"DYYYHideLeftMenu"]) {
         [self removeFromSuperview];
         return;
     }
