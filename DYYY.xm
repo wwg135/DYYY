@@ -900,13 +900,12 @@
         if (!ipAttribution && cityCode) {
             NSString *provinceName = [CityManager.sharedInstance getProvinceNameWithCode:cityCode] ?: @"";
             NSString *cityName = [CityManager.sharedInstance getCityNameWithCode:cityCode] ?: @"";
-	    NSString *townName = [CityManager.sharedInstance getTownNameWithCode:cityCode] ?: @"";
             
             if (cityName.length > 0) {
                 if ([provinceName isEqualToString:cityName]) {
                     label.text = [NSString stringWithFormat:@"%@  IP属地：%@", text, cityName];
                 } else {
-                    label.text = [NSString stringWithFormat:@"%@  IP属地：%@ %@ %@", text, provinceName, cityName, townName];
+                    label.text = [NSString stringWithFormat:@"%@  IP属地：%@ %@", text, provinceName, cityName];
                 }
             }
         } else {
