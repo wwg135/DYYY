@@ -102,12 +102,7 @@
 @interface AWEAwemeModel : NSObject
 @property (nonatomic, copy) NSString *ipAttribution;
 @property (nonatomic, copy) NSString *cityCode;
-- (BOOL)isLive;
-@end
-
-@interface AWEFeedTableViewController : UIViewController
-- (void)scrollToNextVideo;
-- (AWEAwemeModel *)currentAweme;
+@property (nonatomic, assign) BOOL isLive;
 @end
 
 @interface AWEPlayInteractionTimestampElement : UIView
@@ -129,6 +124,14 @@
 
 @interface AWEHPTopBarCTAltemView : UIView
 
+@end
+
+@interface AWEFeedTableViewController : UIViewController
+@property (nonatomic, strong) AWEAwemeModel *currentAweme;
+- (void)scrollToNextVideo;
+@end
+
+@interface AWEFeedTableView : UIView
 @end
 
 %hook AWEAwemePlayVideoViewController
@@ -444,6 +447,28 @@
 }
 %end
 
+%hook AWEFeedTableViewController
+- (void)scrollViewDidEndDecelerating:(UIScrollView *)scrollView {
+    %orig;
+    
+    if (self.currentAweme && [self.currentAweme isLive] && [[NSUserDefaults standardUserDefaults] boolForKey:@"DYYYisSkipLive"]) {
+        [self scrollToNextVideo];
+    }
+}
+%end
+
+
+%hook AWEFeedTableView
+- (void)layoutSubviews {
+    %orig;
+    if ([[NSUserDefaults standardUserDefaults] boolForKey:@"DYYYisEnableFullScreen"]) {
+        CGRect frame = self.frame;
+        frame.size.height = self.superview.frame.size.height;
+        self.frame = frame;
+    }
+}
+%end
+
 %hook UIView
 
 - (void)setAlpha:(CGFloat)alpha {
@@ -457,6 +482,13 @@
                 %orig(alphaValue);
                 return;
             }
+        }
+    }
+    if ([vc isKindOfClass:%c(AWEPlayInteractionViewController)] && [[NSUserDefaults standardUserDefaults] boolForKey:@"DYYYisEnableFullScreen"]) {
+        CGRect frame = vc.view.frame;
+        if (frame.size.height == vc.view.superview.frame.size.height) {
+            frame.size.height -= 83;
+            vc.view.frame = frame;
         }
     }
     %orig;
@@ -651,9 +683,9 @@
         button.frame = CGRectMake(i * buttonWidth, button.frame.origin.y, buttonWidth, button.frame.size.height);
     }
 
-    if ([[NSUserDefaults standardUserDefaults] boolForKey:@"DYYYisHiddenBottomBg"]) {
+    if ([[NSUserDefaults standardUserDefaults] boolForKey:@"DYYYisHiddenBottomBg"] || [[NSUserDefaults standardUserDefaults] boolForKey:@"DYYYisEnableFullScreen"]) {
         for (UIView *subview in self.subviews) {
-            if ([subview class] == [UIView class]) {  // 确保是真正的UIView而不是子类
+            if ([subview class] == [UIView class]) {
                 BOOL hasImageView = NO;
                 for (UIView *childView in subview.subviews) {
                     if ([childView isKindOfClass:[UIImageView class]]) {
@@ -664,7 +696,7 @@
                 
                 if (hasImageView) {
                     subview.hidden = YES;
-                    break;  // 只隐藏第一个符合条件的视图
+                    break;
                 }
             }
         }
