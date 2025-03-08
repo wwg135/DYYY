@@ -107,6 +107,23 @@
 
 @interface AWEPlayInteractionTimestampElement : UIView
 @property (nonatomic, strong) AWEAwemeModel *model;
+
+@end
+
+@interface AWEUserWorkCollectionViewComponentCell : UIView
+
+@end
+
+@interface AWEFeedRefreshFooter : UIView
+
+@end
+
+@interface AWERLSegmentView : UIView
+
+@end
+
+@interface AWEHPTopBarCTAltemView : UIView
+
 @end
 
 @interface AWEFeedTableViewController : UIViewController
@@ -534,32 +551,25 @@
 - (void)layoutSubviews {
     %orig;
 
-    BOOL hideLikeButton = [[NSUserDefaults standardUserDefaults] boolForKey:@"DYYYHideLikeButton"];
-    BOOL hideCommentButton = [[NSUserDefaults standardUserDefaults] boolForKey:@"DYYYHideCommentButton"];
-    BOOL hideCollectButton = [[NSUserDefaults standardUserDefaults] boolForKey:@"DYYYHideCollectButton"];
-    BOOL hideShareButton = [[NSUserDefaults standardUserDefaults] boolForKey:@"DYYYHideShareButton"];
-
     NSString *accessibilityLabel = self.accessibilityLabel;
 
-//    NSLog(@"Accessibility Label: %@", accessibilityLabel);
-
     if ([accessibilityLabel isEqualToString:@"点赞"]) {
-        if (hideLikeButton) {
+        if ([[NSUserDefaults standardUserDefaults] boolForKey:@"DYYYHideLikeButton"]) {
             [self removeFromSuperview];
             return;
         }
     } else if ([accessibilityLabel isEqualToString:@"评论"]) {
-        if (hideCommentButton) {
+        if ([[NSUserDefaults standardUserDefaults] boolForKey:@"DYYYHideCommentButton"]) {
             [self removeFromSuperview];
             return;
         }
     } else if ([accessibilityLabel isEqualToString:@"分享"]) {
-        if (hideShareButton) {
+        if ([[NSUserDefaults standardUserDefaults] boolForKey:@"DYYYHideShareButton"]) {
             [self removeFromSuperview];
             return;
         }
     } else if ([accessibilityLabel isEqualToString:@"收藏"]) {
-        if (hideCollectButton) {
+        if ([[NSUserDefaults standardUserDefaults] boolForKey:@"DYYYHideCollectButton"]) {
             [self removeFromSuperview];
             return;
         }
@@ -574,14 +584,10 @@
 - (void)layoutSubviews {
     %orig;
 
-    BOOL hideMusicButton = [[NSUserDefaults standardUserDefaults] boolForKey:@"DYYYHideMusicButton"];
-
     NSString *accessibilityLabel = self.accessibilityLabel;
 
-//    NSLog(@"Accessibility Label: %@", accessibilityLabel);
-
     if ([accessibilityLabel isEqualToString:@"音乐详情"]) {
-        if (hideMusicButton) {
+        if ([[NSUserDefaults standardUserDefaults] boolForKey:@"DYYYHideMusicButton"]) {
             [self removeFromSuperview];
             return;
         }
@@ -593,8 +599,8 @@
 %hook AWEPlayInteractionListenFeedView
 - (void)layoutSubviews {
     %orig;
-    BOOL hideMusicButton = [[NSUserDefaults standardUserDefaults] boolForKey:@"DYYYHideMusicButton"];
-    if (hideMusicButton) {
+
+    if ([[NSUserDefaults standardUserDefaults] boolForKey:@"DYYYHideMusicButton"]) {
         [self removeFromSuperview];
         return;
     }
@@ -606,14 +612,10 @@
 - (void)layoutSubviews {
     %orig;
 
-    BOOL hideAvatarButton = [[NSUserDefaults standardUserDefaults] boolForKey:@"DYYYHideAvatarButton"];
-
     NSString *accessibilityLabel = self.accessibilityLabel;
 
-//    NSLog(@"Accessibility Label: %@", accessibilityLabel);
-
     if ([accessibilityLabel isEqualToString:@"关注"]) {
-        if (hideAvatarButton) {
+        if ([[NSUserDefaults standardUserDefaults] boolForKey:@"DYYYHideAvatarButton"]) {
             [self removeFromSuperview];
             return;
         }
@@ -627,8 +629,7 @@
 - (void)layoutSubviews {
     %orig;
 
-    BOOL hideAvatarButton = [[NSUserDefaults standardUserDefaults] boolForKey:@"DYYYHideAvatarButton"];
-    if (hideAvatarButton) {
+    if ([[NSUserDefaults standardUserDefaults] boolForKey:@"DYYYHideAvatarButton"]) {
         [self removeFromSuperview];
         return;
     }
@@ -648,7 +649,7 @@
     NSMutableArray *visibleButtons = [NSMutableArray array];
     Class generalButtonClass = %c(AWENormalModeTabBarGeneralButton);
     Class plusButtonClass = %c(AWENormalModeTabBarGeneralPlusButton);
-    
+
     for (UIView *subview in self.subviews) {
         if (![subview isKindOfClass:generalButtonClass] && ![subview isKindOfClass:plusButtonClass]) continue;
         
@@ -1042,6 +1043,21 @@
 
 %end
 
+%hook AWEFeedTableViewController
+
+- (void)layoutSubviews {
+    %orig;
+    [NSObject cancelPreviousPerformRequestsWithTarget:self selector:@selector(scrollToNextVideo) object:nil];
+    AWEAwemeModel *model = [self currentAweme];
+    
+    BOOL isSkipLive = [[NSUserDefaults standardUserDefaults] boolForKey:@"DYYYisSkipLive"];
+    if ([model isLive] && isSkipLive) {
+        [self performSelector:@selector(scrollToNextVideo) withObject:nil afterDelay:5.0];
+    }
+}
+
+%end
+
 //%ctor {
 //    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(1 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
 //        NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
@@ -1079,3 +1095,65 @@
 //    });
 //}
 
+%hook AWEHPDiscoverFeedEntranceView
+- (void)setAlpha:(CGFloat)alpha {
+    if ([[NSUserDefaults standardUserDefaults] boolForKey:@"DYYYHideDiscover"]) {
+        alpha = 0;
+        %orig(alpha);
+   }else {
+       %orig;
+    }
+}
+
+%end
+
+%hook AWEUserWorkCollectionViewComponentCell
+
+- (void)layoutSubviews {
+    %orig;
+
+    if ([[NSUserDefaults standardUserDefaults] boolForKey:@"DYYYHideMyPage"]) {
+        [self removeFromSuperview];
+        return;
+    }
+}
+
+%end
+
+%hook AWEFeedRefreshFooter
+
+- (void)layoutSubviews {
+    %orig;
+
+    if ([[NSUserDefaults standardUserDefaults] boolForKey:@"DYYYHideMyPage"]) {
+        [self removeFromSuperview];
+        return;
+    }
+}
+
+%end
+
+%hook AWERLSegmentView
+
+- (void)layoutSubviews {
+    %orig;
+
+    if ([[NSUserDefaults standardUserDefaults] boolForKey:@"DYYYHideMyPage"]) {
+        [self removeFromSuperview];
+        return;
+    }
+}
+
+%end
+
+%hook AWEHPTopBarCTAltemView
+
+- (void)layoutSubviews {
+    %orig;
+
+    if ([[NSUserDefaults standardUserDefaults] boolForKey:@"DYYYHideLeftMenu"]) {
+        self.hidden = YES;
+    }
+}
+
+%end
