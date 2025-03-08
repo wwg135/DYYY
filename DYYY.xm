@@ -649,7 +649,7 @@
     NSMutableArray *visibleButtons = [NSMutableArray array];
     Class generalButtonClass = %c(AWENormalModeTabBarGeneralButton);
     Class plusButtonClass = %c(AWENormalModeTabBarGeneralPlusButton);
-
+    
     for (UIView *subview in self.subviews) {
         if (![subview isKindOfClass:generalButtonClass] && ![subview isKindOfClass:plusButtonClass]) continue;
         
