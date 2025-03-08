@@ -103,6 +103,7 @@
 @property (nonatomic, copy) NSString *ipAttribution;
 @property (nonatomic, copy) NSString *cityCode;
 @property (nonatomic, assign) BOOL isLive;
+@property (nonatomic, strong) AWEAwemeModel *currentAweme;
 @end
 
 @interface AWEPlayInteractionTimestampElement : UIView
@@ -128,6 +129,18 @@
 @end
 
 @interface AWEFeedTableView : UIView
+@end
+
+@interface AWEFeedTableViewController : UIViewController
+@end
+
+@interface AWEFeedTableView : UIView
+@end
+
+@interface AWEPlayInteractionProgressContainerView : UIView
+@end
+
+@interface AFDFastSpeedView : UIView
 @end
 
 %hook AWEAwemePlayVideoViewController
@@ -443,14 +456,34 @@
 }
 %end
 
-%hook AWEFeedTableViewController
-- (void)scrollViewDidEndDecelerating:(UIScrollView *)scrollView {
-    %orig;
-    
+%hook AWEAwemeModel
+
+// 实例方法：根据条件判断是否阻止直播初始化
+- (void)live_callInitWithDictyCategoryMethod:(id)arg1 {
+    // 当满足条件时，不调用原始方法（阻止直播初始化）
     if (self.currentAweme && [self.currentAweme isLive] && [[NSUserDefaults standardUserDefaults] boolForKey:@"DYYYisSkipLive"]) {
-        [self scrollToNextVideo];
+        return;
     }
+    %orig; // 否则原逻辑执行
 }
+
+// 类方法：直接通过用户配置判断是否拦截
++ (id)liveStreamURLJSONTransformer {
+    return [[NSUserDefaults standardUserDefaults] boolForKey:@"DYYYisSkipLive"] ? nil : %orig;
+}
+
++ (id)relatedLiveJSONTransformer {
+    return [[NSUserDefaults standardUserDefaults] boolForKey:@"DYYYisSkipLive"] ? nil : %orig;
+}
+
++ (id)rawModelFromLiveRoomModel:(id)arg1 {
+    return [[NSUserDefaults standardUserDefaults] boolForKey:@"DYYYisSkipLive"] ? nil : %orig;
+}
+
++ (id)aweLiveRoom_subModelPropertyKey {
+    return [[NSUserDefaults standardUserDefaults] boolForKey:@"DYYYisSkipLive"] ? nil : %orig;
+}
+
 %end
 
 
@@ -461,6 +494,32 @@
         CGRect frame = self.frame;
         frame.size.height = self.superview.frame.size.height;
         self.frame = frame;
+    }
+}
+%end
+
+%hook AWEPlayInteractionProgressContainerView
+- (void)layoutSubviews {
+    %orig;
+    if ([[NSUserDefaults standardUserDefaults] boolForKey:@"DYYYisEnableFullScreen"]) {
+        for (UIView *subview in self.subviews) {
+            if ([subview class] == [UIView class]) {
+                [subview setBackgroundColor:[UIColor clearColor]];
+            }
+        }
+    }
+}
+%end
+
+%hook AFDFastSpeedView
+- (void)layoutSubviews {
+    %orig;
+    if ([[NSUserDefaults standardUserDefaults] boolForKey:@"DYYYisEnableFullScreen"]) {
+        for (UIView *subview in self.subviews) {
+            if ([subview class] == [UIView class]) {
+                [subview setBackgroundColor:[UIColor clearColor]];
+            }
+        }
     }
 }
 %end
@@ -483,8 +542,17 @@
     if ([vc isKindOfClass:%c(AWEPlayInteractionViewController)] && [[NSUserDefaults standardUserDefaults] boolForKey:@"DYYYisEnableFullScreen"]) {
         CGRect frame = vc.view.frame;
         if (frame.size.height == vc.view.superview.frame.size.height) {
-            frame.size.height -= 83;
-            vc.view.frame = frame;
+            UIResponder *responder = vc.view.superview.nextResponder;
+            while (responder != nil) {
+                if ([responder isKindOfClass:[UIViewController class]]) {
+                    if ([responder isKindOfClass:%c(AWEFeedCellViewController)]) {
+                        frame.size.height -= 83;
+                        vc.view.frame = frame;
+                    }
+                    break;
+                }
+                responder = [responder nextResponder];
+            }
         }
     }
     %orig;
