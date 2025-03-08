@@ -122,10 +122,6 @@
 
 @end
 
-@interface AWEHPTopBarCTAltemView : UIView
-
-@end
-
 @interface AWEFeedTableViewController : UIViewController
 @property (nonatomic, strong) AWEAwemeModel *currentAweme;
 - (void)scrollToNextVideo;
@@ -1141,18 +1137,6 @@
     if ([[NSUserDefaults standardUserDefaults] boolForKey:@"DYYYHideMyPage"]) {
         [self removeFromSuperview];
         return;
-    }
-}
-
-%end
-
-%hook AWEHPTopBarCTAltemView
-
-- (void)layoutSubviews {
-    %orig;
-
-    if ([[NSUserDefaults standardUserDefaults] boolForKey:@"DYYYHideLeftMenu"]) {
-        self.hidden = YES;
     }
 }
 
