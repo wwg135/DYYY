@@ -1743,6 +1743,24 @@
 
 %end
 
+%hook AWETemplatePlayletView
+
+- (void)layoutSubviews {
+    %orig;
+
+    if ([[NSUserDefaults standardUserDefaults] boolForKey:@"DYYYHidePlaylet"]) {
+        // 找到父视图并隐藏
+        UIView *parentView = self.superview;
+        if (parentView) {
+            parentView.hidden = YES;
+        } else {
+            self.hidden = YES;
+        }
+    }
+}
+
+%end
+
 %hook AWETemplateHotspotView
 
 - (void)layoutSubviews {
