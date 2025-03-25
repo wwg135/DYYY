@@ -246,6 +246,9 @@ typedef NS_ENUM(NSInteger, MediaType) {
 @interface CommentInputContainerView : UIView
 @end
 
+@interface AWEPlayInteractionRelatedVideoView : UIView
+@end
+
 @interface AWELongPressPanelTableViewController : UIViewController
 @property (nonatomic, strong) AWEAwemeModel *awemeModel;
 @end
