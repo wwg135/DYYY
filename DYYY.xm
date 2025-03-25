@@ -2801,6 +2801,20 @@ static BOOL isDownloadFlied = NO;
 
 %end
 
+//禁用点击首页刷新
+%hook AWENormalModeTabBarGeneralButton
+
+- (BOOL)enableRefresh {
+    if ([self.accessibilityLabel isEqualToString:@"首页"]) {
+        if ([[NSUserDefaults standardUserDefaults] boolForKey:@"DYYYDisableHomeRefresh"]) {
+            return NO;
+        }
+    }
+    return %orig;
+}
+
+%end
+
 %ctor {
     %init(DYYYSettingsGesture);
     if ([[NSUserDefaults standardUserDefaults] boolForKey:@"DYYYUserAgreementAccepted"]) {
