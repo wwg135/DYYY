@@ -1850,7 +1850,7 @@
 - (void)layoutSubviews {
     %orig;
 
-    if ([[NSUserDefaults standardUserDefaults] boolForKey:@"DYYYHidePlaylet"]) {
+    if ([[NSUserDefaults standardUserDefaults] boolForKey:@"DYYYHideTemplatePlaylet"]) {
         // 找到父视图并隐藏
         UIView *parentView = self.superview;
         if (parentView) {
