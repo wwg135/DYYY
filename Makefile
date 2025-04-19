@@ -12,7 +12,11 @@ ARCHS = arm64 arm64e
 #export THEOS=/Users/huami/theos
 #export THEOS_PACKAGE_SCHEME=roothide
 
-export THEOS_PACKAGE_SCHEME = rootless
+ifeq ($(SCHEME),roothide)
+    export THEOS_PACKAGE_SCHEME = roothide
+else ifeq ($(SCHEME),rootless)
+    export THEOS_PACKAGE_SCHEME = rootless
+endif
 
 export DEBUG = 0
 INSTALL_TARGET_PROCESSES = Aweme
@@ -24,9 +28,9 @@ TWEAK_NAME = DYYY
 DYYY_LIBRARY_SEARCH_PATHS = $(THEOS_PROJECT_DIR)/libs
 DYYY_HEADER_SEARCH_PATHS = $(THEOS_PROJECT_DIR)/libs/include
 
-DYYY_FILES = DYYY.xm DYYYHide.xm DYYYFloatClearButton.xm DYYYFloatSpeedButton.xm DYYYSettings.xm DYYYABTestHook.xm DYYYSettingViewController.m DYYYBottomAlertView.m DYYYCustomInputView.m DYYYOptionsSelectionView.m DYYYIconOptionsDialogView.m DYYYAboutDialogView.m DYYYKeywordListView.m DYYYFilterSettingsView.m DYYYManager.m DYYYUtils.m CityManager.m
+DYYY_FILES = DYYY.xm DYYYHide.xm DYYYFloatClearButton.xm DYYYFloatSpeedButton.xm DYYYSettings.xm DYYYABTestHook.xm DYYYSettingViewController.m DYYYBottomAlertView.m DYYYCustomInputView.m DYYYOptionsSelectionView.m DYYYIconOptionsDialogView.m DYYYAboutDialogView.m DYYYManager.m CityManager.m
 DYYY_CFLAGS = -fobjc-arc -w -I$(DYYY_HEADER_SEARCH_PATHS)
-DYYY_LDFLAGS = -L$(DYYY_LIBRARY_SEARCH_PATHS)
+DYYY_LDFLAGS = -L$(DYYY_LIBRARY_SEARCH_PATHS) -lwebp
 DYYY_FRAMEWORKS = CoreAudio
 CXXFLAGS += -std=c++11
 CCFLAGS += -std=c++11
