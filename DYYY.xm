@@ -3136,8 +3136,6 @@ static BOOL isDownloadFlied = NO;
 %end
 
 %group needDelay
-// Add your methods or hooks here
-%end
 %hook AWELongPressPanelManager
 - (BOOL)shouldShowModernLongPressPanel {
     return YES;
@@ -3157,6 +3155,7 @@ static BOOL isDownloadFlied = NO;
 + (NSUInteger)modernLongPressPanelStyleMode {
     return 1;
 }
+%end
 %end
 
 
