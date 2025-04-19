@@ -1698,6 +1698,10 @@ static void DYYYAddCustomViewToParent(UIView *parentView, float transparency) {
 				}
 			}
 		}
+label.textColor = [UIColor colorWithRed:173/255.0 
+                                        green:216/255.0 
+                                         blue:230/255.0 
+                                        alpha:1.0]; // 浅蓝色
 	}
 	// 应用IP属地标签上移
 	NSString *ipScaleValue = [[NSUserDefaults standardUserDefaults] objectForKey:@"DYYYNicknameScale"];
