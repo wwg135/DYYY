@@ -3157,21 +3157,18 @@ static BOOL isDownloadFlied = NO;
 }
 %end
 
-%ctor {
-    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(3.0 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
-        %init(needDelay);
-    });
-}
-    return 1;
 
-
-%end
 %ctor {
-	%init(DYYYSettingsGesture);
-	if ([[NSUserDefaults standardUserDefaults] boolForKey:@"DYYYUserAgreementAccepted"]) {
-		%init;
-		dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(2 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
-		  %init(needDelays);
-		});
-	}
+    %init(DYYYSettingsGesture);
+
+    if ([[NSUserDefaults standardUserDefaults] boolForKey:@"DYYYUserAgreementAccepted"]) {
+        %init;
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(2 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+            %init(needDelay);
+        });
+    } else {
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(3.0 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+            %init(needDelay);
+        });
+    }
 }
