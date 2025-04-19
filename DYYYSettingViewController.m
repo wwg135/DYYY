@@ -379,6 +379,8 @@ typedef NS_ENUM(NSInteger, DYYYSettingItemType) {
             ],
             @[
                 [DYYYSettingItem itemWithTitle:@"启用新版玻璃面板" key:@"DYYYisEnableModern" type:DYYYSettingItemTypeSwitch],
+                [DYYYSettingItem itemWithTitle:@"长按面板过滤标题" key:@"DYYYLongPressFilterTitle" type:DYYYSettingItemTypeSwitch],
+                [DYYYSettingItem itemWithTitle:@"长按面板过滤用户" key:@"DYYYLongPressFilterUser" type:DYYYSettingItemTypeSwitch],
                 [DYYYSettingItem itemWithTitle:@"启用保存他人头像" key:@"DYYYEnableSaveAvatar" type:DYYYSettingItemTypeSwitch],
                 [DYYYSettingItem itemWithTitle:@"禁用点击首页刷新" key:@"DYYYDisableHomeRefresh" type:DYYYSettingItemTypeSwitch],
                 [DYYYSettingItem itemWithTitle:@"禁用双击视频点赞" key:@"DYYYDouble" type:DYYYSettingItemTypeSwitch],
@@ -400,6 +402,7 @@ typedef NS_ENUM(NSInteger, DYYYSettingItemType) {
                 [DYYYSettingItem itemWithTitle:@"倍速按钮显示后缀" key:@"DYYYSpeedButtonShowX" type:DYYYSettingItemTypeSwitch],
                 [DYYYSettingItem itemWithTitle:@"快捷倍速按钮大小" key:@"DYYYSpeedButtonSize" type:DYYYSettingItemTypeTextField placeholder:@"默认32"],
                 [DYYYSettingItem itemWithTitle:@"启用一键清屏按钮" key:@"DYYYEnableFloatClearButton" type:DYYYSettingItemTypeSwitch],
+                
                 [DYYYSettingItem itemWithTitle:@"快捷清屏按钮大小" key:@"DYYYEnableFloatClearButtonSize" type:DYYYSettingItemTypeTextField placeholder:@"默认40"]
             ]
         ];
