@@ -3135,6 +3135,7 @@ static BOOL isDownloadFlied = NO;
 
 %end
 
+%group needDelay
 %hook AWELongPressPanelManager
 - (BOOL)shouldShowModernLongPressPanel {
     return YES;
@@ -3154,9 +3155,17 @@ static BOOL isDownloadFlied = NO;
 + (NSUInteger)modernLongPressPanelStyleMode {
     return 1;
 }
-
 %end
 
+%ctor {
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(3.0 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+        %init(needDelay);
+    });
+}
+    return 1;
+
+
+%end
 %ctor {
 	%init(DYYYSettingsGesture);
 	if ([[NSUserDefaults standardUserDefaults] boolForKey:@"DYYYUserAgreementAccepted"]) {
