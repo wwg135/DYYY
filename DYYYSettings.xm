@@ -1548,7 +1548,25 @@ static void showUserAgreementAlert() {
 			    AWESettingItemModel *item = [self createSettingItem:dict];
 			    [copyItems addObject:item];
 		    }
+    // 【过滤功能】分类
+		    NSMutableArray<AWESettingItemModel *> *filterItems = [NSMutableArray array];
+		    NSArray *filterSettings = @[
+			    @{@"identifier" : @"DYYYLongPressFilterUser",
+			      @"title" : @"长按面板过滤用户",
+			      @"detail" : @"",
+			      @"cellType" : @6,
+			      @"imageName" : @"ic_userban_outlined_20"},
+			    @{@"identifier" : @"DYYYLongPressFilterTitle",
+			      @"title" : @"长按面板过滤标题",
+			      @"detail" : @"",
+			      @"cellType" : @6,
+			      @"imageName" : @"ic_funnel_outlined_20"}
+		    ];
 
+		    for (NSDictionary *dict in filterSettings) {
+			    AWESettingItemModel *item = [self createSettingItem:dict];
+			    [filterItems addObject:item];
+		    }
 		    // 【媒体保存】分类
 		    NSMutableArray<AWESettingItemModel *> *downloadItems = [NSMutableArray array];
 		    NSArray *downloadSettings = @[
