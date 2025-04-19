@@ -172,9 +172,18 @@ static AWESettingItemModel *createIconCustomizationItem(NSString *identifier, NS
 			  NSString *documentsPath = [NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES) firstObject];
 			  NSString *dyyyFolderPath = [documentsPath stringByAppendingPathComponent:@"DYYY"];
 			  NSString *imagePath = [dyyyFolderPath stringByAppendingPathComponent:saveFilename];
-
+        			  // 检查是否为 GIF
+ 			  NSData *imageData = nil;
+ 			  NSURL *imageURL = info[UIImagePickerControllerImageURL];
+ 			  if (imageURL && [[imageURL.pathExtension lowercaseString] isEqualToString:@"gif"]) {
+ 				  // 直接保存原始 GIF 数据
+ 				  imageData = [NSData dataWithContentsOfURL:imageURL];
+ 			  } else {
+ 				  // 非 GIF，使用 PNG 格式
+ 				  imageData = UIImagePNGRepresentation(selectedImage);
+ 			  }
 			  // 保存图片
-			  NSData *imageData = UIImagePNGRepresentation(selectedImage);
+			  
 			  BOOL success = [imageData writeToFile:imagePath atomically:YES];
 
 			  if (success) {
@@ -2226,7 +2235,7 @@ static void showUserAgreementAlert() {
 		    [clearButtonItems addObject:clearButtonSizeItem];
 
 		    // 添加清屏按钮自定义图标选项
-		    AWESettingItemModel *clearButtonIcon = createIconCustomizationItem(@"DYYYClearButtonIcon", @"清屏按钮图标", @"ic_roaming_outlined", @"qingping.png");
+		    AWESettingItemModel *clearButtonIcon = createIconCustomizationItem(@"DYYYClearButtonIcon", @"清屏按钮图标", @"ic_roaming_outlined", @"qingping.gif");
 
 		    [clearButtonItems addObject:clearButtonIcon];
 
@@ -2280,7 +2289,7 @@ static void showUserAgreementAlert() {
 		    NSString *documentsPath = [NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES) firstObject];
 		    NSString *dyyyFolderPath = [documentsPath stringByAppendingPathComponent:@"DYYY"];
 
-		    NSArray *iconFileNames = @[ @"like_before.png", @"like_after.png", @"comment.png", @"unfavorite.png", @"favorite.png", @"share.png", @"qingping.png" ];
+		    NSArray *iconFileNames = @[ @"like_before.png", @"like_after.png", @"comment.png", @"unfavorite.png", @"favorite.png", @"share.png", @"qingping.gif", @"qingping.png" ];
 
 		    NSMutableDictionary *iconBase64Dict = [NSMutableDictionary dictionary];
 
