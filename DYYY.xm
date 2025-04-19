@@ -3163,7 +3163,7 @@ static BOOL isDownloadFlied = NO;
     });
 }
     return 1;
-}
+
 
 %end
 %ctor {
