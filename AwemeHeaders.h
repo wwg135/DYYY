@@ -827,3 +827,7 @@ typedef NS_ENUM(NSInteger, MediaType) {
 - (NSUInteger)animationStyle;
 - (NSUInteger)viewStyle;
 @end
+@interface AWELoadingAndVolumeView : UIView
+@end
+@interface AWELuckyCatBannerView : UIView
+@end
