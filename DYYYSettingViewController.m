@@ -612,14 +612,17 @@ typedef NS_ENUM(NSInteger, DYYYSettingItemType) {
     [headerView addSubview:buttonContainer];
     
     UIImageView *iconView = [[UIImageView alloc] initWithFrame:CGRectMake(10, 8, 20, 20)];
-    NSArray *iconConfigs = @[
-        @{@"name": @"gearshape.fill", @"color": [UIColor systemBlueColor]},
-        @{@"name": @"display", @"color": [UIColor systemOrangeColor]},
-        @{@"name": @"eye.slash.fill", @"color": [UIColor systemPurpleColor]},
-        @{@"name": @"trash.fill", @"color": [UIColor systemRedColor]},
-        @{@"name": @"star.fill", @"color": [UIColor systemYellowColor]}，
-        @{@"name": @"bolt.fill", @"color": [UIColor systemBlueColor]}             // 新增：增强设置
-    ];
+    // 修改后的 iconConfigs 数组（新增两个图标）
+NSArray<NSDictionary *> *iconConfigs = @[
+    @{@"name": @"gearshape.fill", @"color": [UIColor systemBlueColor]},       // 基本设置
+    @{@"name": @"rectangle.stack.person", @"color": [UIColor systemOrangeColor]}, // 界面设置
+    @{@"name": @"eye.hide.fill", @"color": [UIColor systemPurpleColor]},        // 隐藏设置
+    @{@"name": @"minus.rectangle.on.rectangle", @"color": [UIColor systemRedColor]}, // 顶栏移除
+    @{@"name": @"line.horizontal.circle.fill", @"color": [UIColor systemYellowColor]}, // 过滤功能
+    @{@"name": @"bolt.fill", @"color": [UIColor systemBlueColor]},             // 新增：增强设置
+    @{@"name": @"star.fill", @"color": [UIColor systemGoldColor]}              // 新增：高级功能
+];
+
     NSDictionary *config = iconConfigs[MIN(section, iconConfigs.count - 1)];
     UIImage *iconImage = [UIImage systemImageNamed:config[@"name"] withConfiguration:[UIImageSymbolConfiguration configurationWithPointSize:20 weight:UIImageSymbolWeightMedium]];
     iconView.image = [iconImage imageWithTintColor:config[@"color"] renderingMode:UIImageRenderingModeAlwaysOriginal];
