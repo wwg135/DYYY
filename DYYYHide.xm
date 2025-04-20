@@ -1418,4 +1418,8 @@
 		%init;
 	}
 }
-
+//移除极速版我的片面红包横幅
+ %hook AWELuckyCatBannerView
+ - (id)initWithFrame:(CGRect)frame {
+     return nil;
+ }
