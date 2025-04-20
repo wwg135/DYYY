@@ -1355,7 +1355,26 @@
 	return %orig;
 }
 %end
+//移除极速版我的片面红包横幅
+%hook AWELuckyCatBannerView
+- (id)initWithFrame:(CGRect)frame {
+    return nil;
+}
 
+- (id)init {
+    return nil;
+}
+%end
+
+//隐藏虾线
+%hook AWELoadingAndVolumeView
+
+- (void)layoutSubviews {
+    [self removeFromSuperview];
+    return;
+}
+
+%end
 //强制启用新版抖音长按 UI（现代风）
 %hook AWELongPressPanelManager
 - (BOOL)shouldShowModernLongPressPanel {
@@ -1410,18 +1429,3 @@
 		%init;
 	}
 }
-//移除极速版我的片面红包横幅
- %hook AWELuckyCatBannerView
- - (id)initWithFrame:(CGRect)frame {
-     - (id)init {
-     return nil;
- }
-//隐藏双指缩放后的虾线
-%hook AWELoadingAndVolumeView
-
-- (void)layoutSubviews {
-    [self removeFromSuperview];
-    return;
-}
-
-%end
