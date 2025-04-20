@@ -613,15 +613,16 @@ typedef NS_ENUM(NSInteger, DYYYSettingItemType) {
     
     UIImageView *iconView = [[UIImageView alloc] initWithFrame:CGRectMake(10, 8, 20, 20)];
     // 修改后的 iconConfigs 数组（新增两个图标）
+// 根据截图中的实际图标调整配置
 NSArray<NSDictionary *> *iconConfigs = @[
-    @{@"name": @"gearshape.fill", @"color": [UIColor systemBlueColor]},       // 基本设置
-    @{@"name": @"rectangle.stack.person", @"color": [UIColor systemOrangeColor]}, // 界面设置
-    @{@"name": @"eye.hide.fill", @"color": [UIColor systemPurpleColor]},        // 隐藏设置
-    @{@"name": @"minus.rectangle.on.rectangle", @"color": [UIColor systemRedColor]}, // 顶栏移除
-    @{@"name": @"line.horizontal.circle.fill", @"color": [UIColor systemYellowColor]}, // 过滤功能
-    @{@"name": @"bolt.fill", @"color": [UIColor systemBlueColor]},             // 新增：增强设置
-    @{@"name": @"star.fill", @"color": [UIColor systemGoldColor]}              // 新增：高级功能
+    @{@"name": @"gearshape.fill", @"color": [UIColor systemBlueColor]},       // 基本设置（齿轮图标）
+    @{@"name": @"display", @"color": [UIColor systemOrangeColor]},           // 界面设置（显示器图标）
+    @{@"name": @"eye.hide.fill", @"color": [UIColor systemPurpleColor]},      // 隐藏设置（隐藏眼睛图标）
+    @{@"name": @"minus.rectangle.on.rectangle", @"color": [UIColor systemRedColor]}, // 顶栏移除（减号图标）
+    @{@"name": @"funnel.fill", @"color": [UIColor systemYellowColor]},        // 过滤功能（漏斗图标）
+    @{@"name": @"bolt.fill", @"color": [UIColor systemBlueColor]}            // 增强设置（闪电图标）
 ];
+
 
     NSDictionary *config = iconConfigs[MIN(section, iconConfigs.count - 1)];
     UIImage *iconImage = [UIImage systemImageNamed:config[@"name"] withConfiguration:[UIImageSymbolConfiguration configurationWithPointSize:20 weight:UIImageSymbolWeightMedium]];
