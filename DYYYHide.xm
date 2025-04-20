@@ -1380,15 +1380,7 @@
     return DYYYGetBool(@"DYYYisEnableModern") ? 1 : 0;
 }
 %end
-//隐藏双指缩放后的虾线
-%hook AWELoadingAndVolumeView
 
-- (void)layoutSubviews {
-    [self removeFromSuperview];
-    return;
-}
-
-%end
 // 聊天视频底部评论框背景透明
 %hook AWEIMFeedBottomQuickEmojiInputBar
 
@@ -1423,3 +1415,12 @@
  - (id)initWithFrame:(CGRect)frame {
      return nil;
  }
+//隐藏双指缩放后的虾线
+%hook AWELoadingAndVolumeView
+
+- (void)layoutSubviews {
+    [self removeFromSuperview];
+    return;
+}
+
+%end
