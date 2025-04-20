@@ -1644,8 +1644,14 @@ static void DYYYAddCustomViewToParent(UIView *parentView, float transparency) {
 			isHideChannel = [defaults boolForKey:@"DYYYHideFriend"];
 		} else if ([channelID isEqualToString:@"homepage_playlet_stream"]) {
 			isHideChannel = [defaults boolForKey:@"DYYYHidePlaylet"];
-		}
-
+		
+                 } else if ([channelID isEqualToString:@"homepage_pad_cinema"]) {
+			isHideChannel = [defaults boolForKey:@"DYYYHideCinema"];
+		} else if ([channelID isEqualToString:@"homepage_pad_kids_v2"]) {
+			isHideChannel = [defaults boolForKey:@"DYYYHideKidsV2"];
+		} else if ([channelID isEqualToString:@"homepage_pad_game"]) {
+			isHideChannel = [defaults boolForKey:@"DYYYHideGame"];
+                }
 		if (!isHideChannel) {
 			[newChannelModels addObject:tabItemModel];
 		} else {
