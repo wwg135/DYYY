@@ -617,8 +617,8 @@ typedef NS_ENUM(NSInteger, DYYYSettingItemType) {
         @{@"name": @"display", @"color": [UIColor systemOrangeColor]},
         @{@"name": @"eye.slash.fill", @"color": [UIColor systemPurpleColor]},
         @{@"name": @"trash.fill", @"color": [UIColor systemRedColor]},
-        @{@"name": @"star.fill", @"color": [UIColor systemYellowColor]}
-         @{@"name": @"bolt.fill", @"color": [UIColor systemBlueColor]},             // 新增：增强设置
+        @{@"name": @"star.fill", @"color": [UIColor systemYellowColor]}，
+        @{@"name": @"bolt.fill", @"color": [UIColor systemBlueColor]}             // 新增：增强设置
     ];
     NSDictionary *config = iconConfigs[MIN(section, iconConfigs.count - 1)];
     UIImage *iconImage = [UIImage systemImageNamed:config[@"name"] withConfiguration:[UIImageSymbolConfiguration configurationWithPointSize:20 weight:UIImageSymbolWeightMedium]];
