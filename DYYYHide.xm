@@ -1413,6 +1413,7 @@
 //移除极速版我的片面红包横幅
  %hook AWELuckyCatBannerView
  - (id)initWithFrame:(CGRect)frame {
+     - (id)init {
      return nil;
  }
 //隐藏双指缩放后的虾线
