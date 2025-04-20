@@ -435,6 +435,9 @@ typedef NS_ENUM(NSInteger, DYYYSettingItemType) {
     self.footerLabel.font = [UIFont systemFontOfSize:14];
     self.footerLabel.textColor = [UIColor secondaryLabelColor];
     self.footerLabel.numberOfLines = 2;
+// 动态计算宽度（适配 Safe Area）
+    CGFloat width = self.view.safeAreaLayoutGuide.layoutFrame.size.width;
+    self.footerLabel.frame = CGRectMake(0, 0, width, 50);
     self.tableView.tableFooterView = self.footerLabel;
 }
 
