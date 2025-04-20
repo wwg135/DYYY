@@ -617,9 +617,9 @@ typedef NS_ENUM(NSInteger, DYYYSettingItemType) {
 NSArray<NSDictionary *> *iconConfigs = @[
     @{@"name": @"gearshape.fill", @"color": [UIColor systemBlueColor]},       // 基本设置（齿轮图标）
     @{@"name": @"display", @"color": [UIColor systemOrangeColor]},           // 界面设置（显示器图标）
-    @{@"name": @"eye.hide.fill", @"color": [UIColor systemPurpleColor]},      // 隐藏设置（隐藏眼睛图标）
-    @{@"name": @"minus.rectangle.on.rectangle", @"color": [UIColor systemRedColor]}, // 顶栏移除（减号图标）
-    @{@"name": @"funnel.fill", @"color": [UIColor systemYellowColor]},        // 过滤功能（漏斗图标）
+    @{@"name": @"eye.slash.fill", @"color": [UIColor systemPurpleColor]},      // 隐藏设置（隐藏眼睛图标）
+    @{@"name": @"trash.fill", @"color": [UIColor systemRedColor]}, // 顶栏移除（减号图标）
+    @{@"name": @"star.fill", @"color": [UIColor systemYellowColor]},        // 过滤功能（漏斗图标）
     @{@"name": @"bolt.fill", @"color": [UIColor systemBlueColor]}            // 增强设置（闪电图标）
 ];
 
