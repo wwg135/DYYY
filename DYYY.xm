@@ -6078,7 +6078,7 @@ static void *DYYYTabBarHeightContext = &DYYYTabBarHeightContext;
         return;
     }
 
-    // BOOL enableBlur = DYYYGetBool(@"DYYYEnableCommentBlur");
+    BOOL enableBlur = DYYYGetBool(@"DYYYEnableCommentBlur");
     BOOL enableFS = DYYYGetBool(@"DYYYEnableFullScreen");
 
     UIViewController *vc = [DYYYUtils firstAvailableViewControllerFromView:self];
@@ -6092,7 +6092,7 @@ static void *DYYYTabBarHeightContext = &DYYYTabBarHeightContext;
                      (PlayVCClass2 && [vc isKindOfClass:PlayVCClass2]) ||
                      (PlayVCClass3 && [vc isKindOfClass:PlayVCClass3]));
 
-    if (isPlayVC) {
+    if (isPlayVC && enableBlur) {
         if (frame.origin.x != 0) {
             return;
         }
