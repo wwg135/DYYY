@@ -1,5 +1,10 @@
 <p align="center">
-  <img src="Screenshots/DYYY_poster_v9.png" alt="DYYY Poster" />
+  <img src="Screenshots/DYYY_poster.png" alt="DYYY Poster" />
+</p>
+
+<p align="center">
+  <img src="https://img.shields.io/badge/Platform-iOS%2014.0%2B-black?style=flat&labelColor=black" />
+  <img src="https://img.shields.io/badge/App-%E6%8A%96%E9%9F%B3%2036.5.0-black?style=flat&labelColor=black" />
 </p>
 
 # DYYY
@@ -10,6 +15,7 @@
 ## 目录
 - [功能亮点](#功能亮点)
 - [使用方式](#使用方式)
+- [贡献者](#贡献者)
 - [远程配置](#远程配置)
 - [解析下载接口](#解析下载接口)
 - [构建与打包](#构建与打包)
@@ -23,6 +29,49 @@
 ## 使用方式
 - 打开抖音后 **双指长按** 进入设置
 - 或在 **抖音设置** 中找到 DYYY 入口
+
+## 贡献者
+
+<table>
+  <tr>
+    <td align="center"><a href="https://github.com/huami1314"><img src="https://github.com/huami1314.png?size=120" width="100px;" height="100px;" alt="huami1314"/></a><br /><sub><b>huami1314</b></sub></td>
+    <td align="center"><a href="https://github.com/Wtrwx"><img src="https://github.com/Wtrwx.png?size=120" width="100px;" height="100px;" alt="Wtrwx"/></a><br /><sub><b>Wtrwx</b></sub></td>
+    <td align="center"><a href="https://github.com/lihebgyee"><img src="https://github.com/lihebgyee.png?size=120" width="100px;" height="100px;" alt="lihebgyee"/></a><br /><sub><b>lihebgyee</b></sub></td>
+    <td align="center"><a href="https://github.com/wahha2003"><img src="https://github.com/wahha2003.png?size=120" width="100px;" height="100px;" alt="wahha2003"/></a><br /><sub><b>wahha2003</b></sub></td>
+    <td align="center"><a href="https://github.com/Nathalie-Annis"><img src="https://github.com/Nathalie-Annis.png?size=120" width="100px;" height="100px;" alt="Nathalie-Annis"/></a><br /><sub><b>Nathalie-Annis</b></sub></td>
+  </tr>
+  <tr>
+    <td align="center"><a href="https://github.com/PaTTeeL"><img src="https://github.com/PaTTeeL.png?size=120" width="100px;" height="100px;" alt="PaTTeeL"/></a><br /><sub><b>PaTTeeL</b></sub></td>
+    <td align="center"><a href="https://github.com/lihyee"><img src="https://github.com/lihyee.png?size=120" width="100px;" height="100px;" alt="lihyee"/></a><br /><sub><b>lihyee</b></sub></td>
+    <td align="center"><a href="https://github.com/wwg135"><img src="https://github.com/wwg135.png?size=120" width="100px;" height="100px;" alt="wwg135"/></a><br /><sub><b>wwg135</b></sub></td>
+    <td align="center"><a href="https://github.com/CW-1024"><img src="https://github.com/CW-1024.png?size=120" width="100px;" height="100px;" alt="CW-1024"/></a><br /><sub><b>CW-1024</b></sub></td>
+    <td align="center"><a href="https://github.com/Wangin1996"><img src="https://github.com/Wangin1996.png?size=120" width="100px;" height="100px;" alt="Wangin1996"/></a><br /><sub><b>Wangin1996</b></sub></td>
+  </tr>
+  <tr>
+    <td align="center"><a href="https://github.com/Patickhuang"><img src="https://github.com/Patickhuang.png?size=120" width="100px;" height="100px;" alt="Patickhuang"/></a><br /><sub><b>Patickhuang</b></sub></td>
+    <td align="center"><a href="https://github.com/zhaoyuedong"><img src="https://github.com/zhaoyuedong.png?size=120" width="100px;" height="100px;" alt="zhaoyuedong"/></a><br /><sub><b>zhaoyuedong</b></sub></td>
+    <td align="center"><a href="https://github.com/Huangbai233"><img src="https://github.com/Huangbai233.png?size=120" width="100px;" height="100px;" alt="Huangbai233"/></a><br /><sub><b>Huangbai233</b></sub></td>
+    <td align="center"><a href="https://github.com/fries0710"><img src="https://github.com/fries0710.png?size=120" width="100px;" height="100px;" alt="fries0710"/></a><br /><sub><b>fries0710</b></sub></td>
+    <td align="center"><a href="https://github.com/msm8976"><img src="https://github.com/msm8976.png?size=120" width="100px;" height="100px;" alt="msm8976"/></a><br /><sub><b>msm8976</b></sub></td>
+  </tr>
+  <tr>
+    <td align="center"><a href="https://github.com/xiangfeidexiaohuo"><img src="https://github.com/xiangfeidexiaohuo.png?size=120" width="100px;" height="100px;" alt="xiangfeidexiaohuo"/></a><br /><sub><b>xiangfeidexiaohuo</b></sub></td>
+    <td align="center"><a href="https://github.com/Mieing"><img src="https://github.com/Mieing.png?size=120" width="100px;" height="100px;" alt="Mieing"/></a><br /><sub><b>Mieing</b></sub></td>
+    <td align="center"><a href="https://github.com/invalidunit"><img src="https://github.com/invalidunit.png?size=120" width="100px;" height="100px;" alt="invalidunit"/></a><br /><sub><b>invalidunit</b></sub></td>
+    <td align="center"><a href="https://github.com/ways0210"><img src="https://github.com/ways0210.png?size=120" width="100px;" height="100px;" alt="ways0210"/></a><br /><sub><b>ways0210</b></sub></td>
+    <td align="center"><a href="https://github.com/woqunimaxr"><img src="https://github.com/woqunimaxr.png?size=120" width="100px;" height="100px;" alt="woqunimaxr"/></a><br /><sub><b>woqunimaxr</b></sub></td>
+  </tr>
+  <tr>
+    <td align="center"><a href="https://github.com/Sini921"><img src="https://github.com/Sini921.png?size=120" width="100px;" height="100px;" alt="Sini921"/></a><br /><sub><b>Sini921</b></sub></td>
+    <td align="center"><a href="https://github.com/cbjn"><img src="https://github.com/cbjn.png?size=120" width="100px;" height="100px;" alt="cbjn"/></a><br /><sub><b>cbjn</b></sub></td>
+    <td align="center"><a href="https://github.com/huami1214"><img src="https://github.com/huami1214.png?size=120" width="100px;" height="100px;" alt="huami1214"/></a><br /><sub><b>huami1214</b></sub></td>
+    <td align="center"><a href="https://github.com/wangliang12138"><img src="https://github.com/wangliang12138.png?size=120" width="100px;" height="100px;" alt="wangliang12138"/></a><br /><sub><b>wangliang12138</b></sub></td>
+    <td align="center"><a href="https://github.com/jiuwei95"><img src="https://github.com/jiuwei95.png?size=120" width="100px;" height="100px;" alt="jiuwei95"/></a><br /><sub><b>jiuwei95</b></sub></td>
+  </tr>
+  <tr>
+    <td align="center"><a href="https://github.com/plplpmmmmh"><img src="https://github.com/plplpmmmmh.png?size=120" width="100px;" height="100px;" alt="plplpmmmmh"/></a><br /><sub><b>plplpmmmmh</b></sub></td>
+  </tr>
+</table>
 
 ## 远程配置
 
