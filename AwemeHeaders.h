@@ -1417,3 +1417,27 @@ typedef NS_ENUM(NSUInteger, DYEdgeMode) {
 
 @interface TTPlayerView : UIView
 @end
+
+// 投屏 VPN 检测
+@interface BDByteCastUtils : NSObject
++ (BOOL)netVPNStatus;
+@end
+
+@interface BDByteCastNetUtilities : NSObject
+- (BOOL)getVPNStatus;
+@end
+
+@interface BDByteCastMonitorManager : NSObject
+- (BOOL)netVPNStatus;
+- (void)setNetVPNStatus:(BOOL)netVPNStatus;
+@end
+
+@interface BDByteCastEnvInfo : NSObject
+- (BOOL)isVPNActive;
+- (void)setIsVPNActive:(BOOL)isVPNActive;
+@end
+
+@interface BDByteScreenCastContext : NSObject
+- (BOOL)isVPNActive;
+- (void)setIsVPNActive:(BOOL)isVPNActive;
+@end

@@ -354,6 +354,14 @@ void showDYYYSettingsVC(UIViewController *rootVC, BOOL hasAgreed) {
               @"cellType" : @37,
               @"imageName" : @"ic_play_outlined_12"
           },
+          @{
+              @"identifier" : @"DYYYDisableCastVPNCheck",
+              @"title" : @"忽略投屏 VPN 检测",
+              @"subTitle" : @"开启后在连接 VPN 时也可以正常投屏",
+              @"detail" : @"",
+              @"cellType" : @37,
+              @"imageName" : @"ic_tv_outlined_20"
+          },
           @{@"identifier" : @"DYYYDefaultSpeed",
             @"title" : @"设置默认倍速",
             @"detail" : @"",

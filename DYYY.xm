@@ -1776,6 +1776,86 @@ static NSString *const kDYYYLongPressCopyEnabledKey = @"DYYYLongPressCopyTextEna
 
 %end
 
+// 投屏忽略 VPN 检测
+%hook BDByteCastUtils
+
++ (BOOL)netVPNStatus {
+    if (DYYYGetBool(@"DYYYDisableCastVPNCheck")) {
+        return NO;
+    }
+    return %orig;
+}
+
+%end
+
+%hook BDByteCastNetUtilities
+
+- (BOOL)getVPNStatus {
+    if (DYYYGetBool(@"DYYYDisableCastVPNCheck")) {
+        return NO;
+    }
+    return %orig;
+}
+
+%end
+
+%hook BDByteCastMonitorManager
+
+- (BOOL)netVPNStatus {
+    if (DYYYGetBool(@"DYYYDisableCastVPNCheck")) {
+        return NO;
+    }
+    return %orig;
+}
+
+- (void)setNetVPNStatus:(BOOL)netVPNStatus {
+    if (DYYYGetBool(@"DYYYDisableCastVPNCheck")) {
+        %orig(NO);
+        return;
+    }
+    %orig(netVPNStatus);
+}
+
+%end
+
+%hook BDByteCastEnvInfo
+
+- (BOOL)isVPNActive {
+    if (DYYYGetBool(@"DYYYDisableCastVPNCheck")) {
+        return NO;
+    }
+    return %orig;
+}
+
+- (void)setIsVPNActive:(BOOL)isVPNActive {
+    if (DYYYGetBool(@"DYYYDisableCastVPNCheck")) {
+        %orig(NO);
+        return;
+    }
+    %orig(isVPNActive);
+}
+
+%end
+
+%hook BDByteScreenCastContext
+
+- (BOOL)isVPNActive {
+    if (DYYYGetBool(@"DYYYDisableCastVPNCheck")) {
+        return NO;
+    }
+    return %orig;
+}
+
+- (void)setIsVPNActive:(BOOL)isVPNActive {
+    if (DYYYGetBool(@"DYYYDisableCastVPNCheck")) {
+        %orig(NO);
+        return;
+    }
+    %orig(isVPNActive);
+}
+
+%end
+
 // 调整直播默认清晰度功能
 static NSArray<NSString *> *dyyy_qualityRank = nil;
 
