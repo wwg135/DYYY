@@ -4833,14 +4833,20 @@ static NSHashTable *processedParentViews = nil;
 
 %end
 
-// 拦截开屏广告
-%hook BDASplashControllerView
-+ (id)alloc {
-    BOOL noAds = DYYYGetBool(@"DYYYNoAds");
-    if (noAds) {
-        return nil;
+// 阻止开屏 AD
+%hook BDASplashManager
+- (void)showSplashControllerViewOnKeyWindow:(id)keyWindow model:(id)model {
+    if (DYYYGetBool(@"DYYYNoAds")) {
+        if (![NSThread isMainThread]) {
+            dispatch_async(dispatch_get_main_queue(), ^{
+                [self splashViewShowFinished];
+            });
+        } else {
+            [self splashViewShowFinished];
+        }
+        return;
     }
-    return %orig;
+    %orig;
 }
 %end
 

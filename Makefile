@@ -53,7 +53,7 @@ include $(THEOS_MAKE_PATH)/tweak.mk
 ifeq ($(shell whoami),huami)
     THEOS_DEVICE_IP = 192.168.31.222
 else
-    THEOS_DEVICE_IP = 192.168.15.105
+    THEOS_DEVICE_IP = 192.168.1.202
 endif
 THEOS_DEVICE_PORT = 22
 

@@ -1418,6 +1418,12 @@ typedef NS_ENUM(NSUInteger, DYEdgeMode) {
 @interface TTPlayerView : UIView
 @end
 
+// 开屏广告
+@interface BDASplashManager : NSObject
+- (void)showSplashControllerViewOnKeyWindow:(id)keyWindow model:(id)model;
+- (void)splashViewShowFinished;
+@end
+
 // 投屏 VPN 检测
 @interface BDByteCastUtils : NSObject
 + (BOOL)netVPNStatus;
