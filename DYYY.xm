@@ -4850,19 +4850,6 @@ static NSHashTable *processedParentViews = nil;
 }
 %end
 
-// 去除启动视频广告
-%hook AWEAwesomeSplashFeedCellOldAccessoryView
-
-- (id)ddExtraView {
-    if (DYYYGetBool(@"DYYYNoAds")) {
-        return NULL;
-    }
-
-    return %orig;
-}
-
-%end
-
 %hook AWEPlayInteractionUserAvatarView
 - (void)layoutSubviews {
     %orig;
