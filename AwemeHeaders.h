@@ -1450,3 +1450,6 @@ typedef NS_ENUM(NSUInteger, DYEdgeMode) {
 - (BOOL)isVPNActive;
 - (void)setIsVPNActive:(BOOL)isVPNActive;
 @end
+
+@interface AWEDPlayerProgressContainerView : UIView
+@end
