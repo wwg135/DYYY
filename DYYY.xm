@@ -7759,6 +7759,29 @@ static NSString *const kHideRecentUsersKey = @"DYYYHideSidebarRecentUsers";
 
 %end
 
+%hook AWEDPlayerProgressContainerView
+
+- (void)layoutSubviews {
+    %orig;
+    
+    for (UIView *subview in self.subviews) {
+        if ([subview isMemberOfClass:[UIView class]]) {
+            UIColor *bgColor = subview.backgroundColor;
+            if (bgColor) {
+                CGFloat r, g, b, a;
+                if ([bgColor getRed:&r green:&g blue:&b alpha:&a]) {
+                    if (r == 0 && g == 0 && b == 0) {
+                        subview.backgroundColor = [UIColor clearColor];
+                    }
+                }
+            }
+        }
+    }
+}
+
+%end
+
+
 // 隐藏键盘 AI
 static __weak UIView *cachedHideView = nil;
 static void hideParentViewsSubviews(UIView *view) {
