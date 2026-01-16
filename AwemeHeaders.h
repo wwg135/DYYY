@@ -378,6 +378,9 @@ typedef NS_ENUM(NSUInteger, DYEdgeMode) {
 @interface AWETabBarSkinContainerView : UIView
 @end
 
+@interface AWETabBarElementContainerView : UIView
+@end
+
 @interface AWENormalModeTabBar : UIView
 @property(nonatomic, assign, readonly) UITabBarController *yy_viewController;
 @property(retain, nonatomic) AWETabBarSkinContainerView *skinContainerView;

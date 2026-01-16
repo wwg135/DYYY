@@ -5587,6 +5587,20 @@ static void *DYYYTabBarHeightContext = &DYYYTabBarHeightContext;
 
 %end
 
+// 精简平板底栏
+%hook AWETabBarElementContainerView
+
+- (void)setHidden:(BOOL)hidden {
+    if (DYYYGetBool(@"DYYYHidePadTabBarElements")) {
+        %orig(YES);
+        return;
+    }
+
+    %orig(hidden);
+}
+
+%end
+
 %hook AWENormalModeTabBarBadgeContainerView
 
 - (void)layoutSubviews {
