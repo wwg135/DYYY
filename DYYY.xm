@@ -7763,7 +7763,11 @@ static NSString *const kHideRecentUsersKey = @"DYYYHideSidebarRecentUsers";
 
 - (void)layoutSubviews {
     %orig;
-    
+
+    if (![[NSUserDefaults standardUserDefaults] boolForKey:@"DYYYEnableFullScreen"]) {
+        return;
+    }
+
     for (UIView *subview in self.subviews) {
         if ([subview isMemberOfClass:[UIView class]]) {
             UIColor *bgColor = subview.backgroundColor;
