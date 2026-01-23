@@ -6021,6 +6021,36 @@ static void *DYYYTabBarHeightContext = &DYYYTabBarHeightContext;
     return view;
 }
 
+- (void)didMoveToWindow {
+    %orig;
+
+    if (DYYYGetBool(@"DYYYEnableFullScreen")) {
+        UIViewController *vc = [DYYYUtils firstAvailableViewControllerFromView:self];
+        if ([vc isKindOfClass:%c(AWEAwemeDetailTableViewController)]) {
+            self.backgroundColor = [UIColor clearColor];
+        }
+    }
+}
+
+- (void)setBackgroundColor:(UIColor *)backgroundColor {
+    if (![NSThread isMainThread]) {
+        dispatch_async(dispatch_get_main_queue(), ^{
+          [self setBackgroundColor:backgroundColor];
+        });
+        return;
+    }
+
+    if (DYYYGetBool(@"DYYYEnableFullScreen")) {
+        UIViewController *vc = [DYYYUtils firstAvailableViewControllerFromView:self];
+        if ([vc isKindOfClass:%c(AWEAwemeDetailTableViewController)]) {
+            %orig([UIColor clearColor]);
+            return;
+        }
+    }
+
+    %orig(backgroundColor);
+}
+
 - (void)layoutSubviews {
     %orig;
 
