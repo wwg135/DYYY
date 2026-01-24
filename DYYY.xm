@@ -6558,6 +6558,7 @@ static void *DYYYTabBarHeightContext = &DYYYTabBarHeightContext;
 
 - (void)viewDidLayoutSubviews {
     %orig;
+    // self.view.hidden = YES;
     if (DYYYGetBool(@"DYYYEnableFullScreen")) {
         UIView *contentView = self.contentView;
         if (contentView && contentView.superview) {
@@ -6570,6 +6571,14 @@ static void *DYYYTabBarHeightContext = &DYYYTabBarHeightContext;
             } else if (frame.size.height == parentHeight - (gCurrentTabBarHeight * 2)) {
                 frame.size.height = parentHeight - gCurrentTabBarHeight;
                 contentView.frame = frame;
+            } else if (fabs(frame.size.height - parentHeight) < 1.0) {
+                dispatch_async(dispatch_get_main_queue(), ^{
+                    CGRect dFrame = contentView.frame;
+                    if (fabs(dFrame.size.height - (parentHeight + gCurrentTabBarHeight)) > 1.0) {
+                        dFrame.size.height += gCurrentTabBarHeight;
+                        contentView.frame = dFrame;
+                    }
+                });
             }
         }
     }
