@@ -6282,18 +6282,30 @@ static void *DYYYTabBarHeightContext = &DYYYTabBarHeightContext;
         static NSNumber *shouldRestoreChat = nil;
         static dispatch_once_t onceToken;
         dispatch_once(&onceToken, ^{
-          BOOL includeChat = NO;
-          Class managerClass = %c(AWEVersionUpdateManager);
-          if (managerClass && [managerClass respondsToSelector:@selector(sharedInstance)]) {
-              AWEVersionUpdateManager *manager = [managerClass sharedInstance];
-              if ([manager respondsToSelector:@selector(currentVersion)]) {
-                  NSString *currentVersion = manager.currentVersion;
-                  if (currentVersion.length > 0) {
-                      includeChat = ([DYYYUtils compareVersion:currentVersion toVersion:@"35.5.0"] == NSOrderedAscending);
-                  }
-              }
-          }
-          shouldRestoreChat = @(includeChat);
+            BOOL includeChat = NO;
+            AWEVersionUpdateManager *manager = [%c(AWEVersionUpdateManager) sharedInstance];
+            NSString *currentVersion = manager.currentVersion;
+            if (currentVersion.length > 0) {
+                NSComparisonResult cmp1 = [DYYYUtils compareVersion:currentVersion toVersion:@"35.5.0"];
+                NSComparisonResult cmp2 = [DYYYUtils compareVersion:currentVersion toVersion:@"37.2.0"];
+                BOOL enableForIMMediaDetail = YES;
+                // 检查 ABTest 配置（大于 37.2.0 时需看 ABTest 状态）
+                if (cmp2 != NSOrderedAscending) {
+                    id abTestMgr = [%c(AWEABTestManager) sharedManager];
+                    NSDictionary *abDic = [abTestMgr consistentABTestDic];
+                    NSDictionary *imOpt = [abDic objectForKey:@"im_media_detail_page_opt"];
+                    if ([imOpt isKindOfClass:[NSDictionary class]]) {
+                        id enableValue = [imOpt objectForKey:@"enable"];
+                        if ([enableValue respondsToSelector:@selector(boolValue)]) {
+                            enableForIMMediaDetail = [enableValue boolValue];
+                        }
+                    }
+                }
+                if (cmp1 == NSOrderedAscending || (cmp2 != NSOrderedAscending && enableForIMMediaDetail)) {
+                    includeChat = YES;
+                }
+            }
+            shouldRestoreChat = @(includeChat);
         });
 
         if (shouldRestoreChat.boolValue) {
