@@ -7783,8 +7783,11 @@ static NSString *const kHideRecentUsersKey = @"DYYYHideSidebarRecentUsers";
     
     return shouldShow;
 }
-
 - (id)elementContent {
+    if (!DYYYGetBool(DYYY_SAVE_COMMENT_AUDIO_KEY)) {
+        return %orig;
+    }
+    
     AWECommentLongPressPanelContext *context = [self commentPageContext];
     AWECommentModel *comment = [context selectdComment] ?: [[context params] selectdComment];
     
@@ -7796,6 +7799,10 @@ static NSString *const kHideRecentUsersKey = @"DYYYHideSidebarRecentUsers";
 }
 
 - (id)elementImage {
+    if (!DYYYGetBool(DYYY_SAVE_COMMENT_AUDIO_KEY)) {
+        return %orig;
+    }
+    
     AWECommentLongPressPanelContext *context = [self commentPageContext];
     AWECommentModel *comment = [context selectdComment] ?: [[context params] selectdComment];
     
