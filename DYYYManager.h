@@ -99,11 +99,11 @@
  * 下载并分享评论区语音
  * @param audioContent 语音内容 JSON 字符串
  * @param userName 评论者用户名
- * @param createTime 评论创建时间
+ * @param createTime 评论创建时间（NSNumber，秒级时间戳）
  */
 + (void)downloadAndShareCommentAudio:(NSString *)audioContent
                             userName:(NSString *)userName
-                          createTime:(long long)createTime;
+                          createTime:(NSNumber *)createTime;
 
 /**
  * 批量下载图片

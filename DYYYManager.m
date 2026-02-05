@@ -3710,7 +3710,7 @@ static BOOL DYYYWriteStaticImageToGIF(UIImage *image, NSURL *gifURL) {
 
 + (void)downloadAndShareCommentAudio:(NSString *)audioContent
                             userName:(NSString *)userName
-                          createTime:(long long)createTime {
+                          createTime:(NSNumber *)createTime {
     if (!audioContent || audioContent.length == 0) {
         dispatch_async(dispatch_get_main_queue(), ^{
             [DYYYUtils showToast:@"语音内容为空"];
@@ -3783,9 +3783,12 @@ static BOOL DYYYWriteStaticImageToGIF(UIImage *image, NSURL *gifURL) {
         }
         
         NSDateFormatter *formatter = [[NSDateFormatter alloc] init];
-        formatter.dateFormat = @"yyyyMMdd_HHmmss";
-        NSDate *commentDate = [NSDate dateWithTimeIntervalSince1970:createTime];
+        formatter.dateFormat = @"yyyy-MM-dd HH:mm:ss";
+        NSTimeInterval timestamp = (createTime && [createTime doubleValue] > 0) ? [createTime doubleValue] : [[NSDate date] timeIntervalSince1970];
+        NSDate *commentDate = [NSDate dateWithTimeIntervalSince1970:timestamp];
         NSString *timeString = [formatter stringFromDate:commentDate];
+        timeString = [timeString stringByReplacingOccurrencesOfString:@":" withString:@"-"];
+        timeString = [timeString stringByReplacingOccurrencesOfString:@" " withString:@"_"];
         
         NSString *safeUserName = userName ?: @"未知用户";
         safeUserName = [safeUserName stringByReplacingOccurrencesOfString:@"/" withString:@"_"];

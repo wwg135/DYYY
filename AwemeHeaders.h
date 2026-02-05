@@ -562,7 +562,7 @@ typedef NS_ENUM(NSUInteger, DYEdgeMode) {
 @interface AWECommentModel : NSObject
 @property (nonatomic, strong, readwrite) AWECommentAudioModel *audioModel;
 @property (nonatomic, strong, readwrite) AWEUserModel *author;
-@property (nonatomic, assign) long long createTime;
+@property (nonatomic, strong, readwrite) NSNumber *createTime;
 - (AWEIMStickerModel *)sticker;
 - (NSString *)content;
 - (NSArray<AWECommentImageModel *> *)imageList;
