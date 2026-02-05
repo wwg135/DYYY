@@ -96,6 +96,16 @@
                completion:(void (^)(NSInteger successCount, NSInteger livePhotoCount, NSInteger failedCount))completion;
 
 /**
+ * 下载并分享评论区语音
+ * @param audioContent 语音内容 JSON 字符串
+ * @param userName 评论者用户名
+ * @param createTime 评论创建时间
+ */
++ (void)downloadAndShareCommentAudio:(NSString *)audioContent
+                            userName:(NSString *)userName
+                          createTime:(long long)createTime;
+
+/**
  * 批量下载图片
  * @param imageURLs 图片URL数组
  */

@@ -21,4 +21,7 @@
 #define DYYYGeonamesErrorDomain @"com.dyyy.geonames.api.error"
 #define DYYYGeonamesStatusUserInfoKey @"com.dyyy.geonames.api.status"
 
+// 评论区语音保存开关
+#define DYYY_SAVE_COMMENT_AUDIO_KEY @"DYYYSaveCommentAudio"
+
 #endif

@@ -2048,6 +2048,14 @@ void showDYYYSettingsVC(UIViewController *rootVC, BOOL hasAgreed) {
             @"cellType" : @37,
             @"imageName" : @"ic_emoji_outlined"
         },
+        @{
+            @"identifier" : DYYY_SAVE_COMMENT_AUDIO_KEY,
+            @"title" : @"保存评论区语音",
+            @"subTitle" : @"长按语音评论可下载并分享",
+            @"detail" : @"",
+            @"cellType" : @37,
+            @"imageName" : @"ic_audio_outlined"
+        },
           @{@"identifier" : @"DYYYForceDownloadPreviewEmotion",
             @"title" : @"保存预览页表情包",
             @"detail" : @"",

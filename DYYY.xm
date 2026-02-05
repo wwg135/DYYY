@@ -7764,6 +7764,88 @@ static NSString *const kHideRecentUsersKey = @"DYYYHideSidebarRecentUsers";
 
 %end
 
+%group CommentLongPressPanelReportElementGroup
+
+%hook AWECommentLongPressPanelSwiftImpl_CommentLongPressPanelReportElement
+
+- (BOOL)elementShouldShow {
+    BOOL shouldShow = %orig;
+    // if (!DYYYGetBool(DYYY_SAVE_COMMENT_AUDIO_KEY)) {
+    //     return shouldShow;
+    // }
+    
+    AWECommentLongPressPanelContext *context = [self commentPageContext];
+    AWECommentModel *comment = [context selectdComment] ?: [[context params] selectdComment];
+    
+    if (comment && comment.audioModel && comment.audioModel.content) {
+        return YES;
+    }
+    
+    return shouldShow;
+}
+
+- (id)elementContent {
+    AWECommentLongPressPanelContext *context = [self commentPageContext];
+    AWECommentModel *comment = [context selectdComment] ?: [[context params] selectdComment];
+    
+    if (comment && comment.audioModel && comment.audioModel.content) {
+        return @"下载";
+    }
+    
+    return %orig;
+}
+
+- (id)elementImage {
+    AWECommentLongPressPanelContext *context = [self commentPageContext];
+    AWECommentModel *comment = [context selectdComment] ?: [[context params] selectdComment];
+    
+    if (comment && comment.audioModel && comment.audioModel.content) {
+        UIImage *downloadIcon = [UIImage systemImageNamed:@"arrow.down.circle"];
+        UIGraphicsBeginImageContextWithOptions(downloadIcon.size, NO, downloadIcon.scale);
+        [[UIColor redColor] setFill];
+        [downloadIcon drawInRect:CGRectMake(0, 0, downloadIcon.size.width, downloadIcon.size.height)];
+        UIImage *coloredIcon = UIGraphicsGetImageFromCurrentImageContext();
+        UIGraphicsEndImageContext();
+        return [coloredIcon imageWithRenderingMode:UIImageRenderingModeAlwaysOriginal];
+    }
+    
+    return %orig;
+}
+
+- (void)elementTapped {
+    if (!DYYYGetBool(DYYY_SAVE_COMMENT_AUDIO_KEY)) {
+        %orig;
+        return;
+    }
+    
+    AWECommentLongPressPanelContext *context = [self commentPageContext];
+    AWECommentModel *comment = [context selectdComment] ?: [[context params] selectdComment];
+    
+    if (comment && comment.audioModel && comment.audioModel.content) {
+        NSString *audioContent = comment.audioModel.content;
+        
+        NSString *userName = @"未知用户";
+        if (comment.author && [comment.author respondsToSelector:@selector(nickname)]) {
+            NSString *nickname = [comment.author performSelector:@selector(nickname)];
+            if (nickname && nickname.length > 0) {
+                userName = nickname;
+            }
+        }
+        
+        long long createTime = comment.createTime;
+        
+        [DYYYManager downloadAndShareCommentAudio:audioContent
+                                         userName:userName
+                                       createTime:createTime];
+        return;
+    }
+    
+    %orig;
+}
+
+%end
+%end
+
 %hook AFDViewedBottomView
 - (void)layoutSubviews {
     %orig;
@@ -7933,6 +8015,10 @@ static void findTargetViewInView(UIView *view) {
         Class commentHeaderGoodsClass = objc_getClass("AWECommentPanelHeaderSwiftImpl.CommentHeaderGoodsView");
         if (commentHeaderGoodsClass) {
             %init(CommentHeaderGoodsGroup, AWECommentPanelHeaderSwiftImpl_CommentHeaderGoodsView = commentHeaderGoodsClass);
+        }
+        Class report = objc_getClass("AWECommentLongPressPanelSwiftImpl.CommentLongPressPanelReportElement");
+        if (report) {
+            %init(CommentLongPressPanelReportElementGroup, AWECommentLongPressPanelSwiftImpl_CommentLongPressPanelReportElement = report);
         }
 
         Class commentHeaderTemplateClass = objc_getClass("AWECommentPanelHeaderSwiftImpl.CommentHeaderTemplateAnchorView");

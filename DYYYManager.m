@@ -3707,4 +3707,137 @@ static BOOL DYYYWriteStaticImageToGIF(UIImage *image, NSURL *gifURL) {
           });
         }];
 }
+
++ (void)downloadAndShareCommentAudio:(NSString *)audioContent
+                            userName:(NSString *)userName
+                          createTime:(long long)createTime {
+    if (!audioContent || audioContent.length == 0) {
+        dispatch_async(dispatch_get_main_queue(), ^{
+            [DYYYUtils showToast:@"语音内容为空"];
+        });
+        return;
+    }
+    
+    NSData *jsonData = [audioContent dataUsingEncoding:NSUTF8StringEncoding];
+    NSError *error = nil;
+    NSDictionary *audioDict = [NSJSONSerialization JSONObjectWithData:jsonData options:0 error:&error];
+    
+    if (error || !audioDict) {
+        dispatch_async(dispatch_get_main_queue(), ^{
+            [DYYYUtils showToast:@"语音数据解析失败"];
+        });
+        NSLog(@"[DYYY] 解析语音 JSON 失败: %@", error);
+        return;
+    }
+    
+    NSArray *videoList = audioDict[@"video_list"];
+    if (!videoList || videoList.count == 0) {
+        dispatch_async(dispatch_get_main_queue(), ^{
+            [DYYYUtils showToast:@"未找到语音URL"];
+        });
+        return;
+    }
+    
+    NSDictionary *videoInfo = videoList.firstObject;
+    NSString *audioURLString = videoInfo[@"main_url"];
+    if (!audioURLString || audioURLString.length == 0) {
+        audioURLString = videoInfo[@"backup_url"];
+    }
+    
+    if (!audioURLString || audioURLString.length == 0) {
+        dispatch_async(dispatch_get_main_queue(), ^{
+            [DYYYUtils showToast:@"语音URL无效"];
+        });
+        return;
+    }
+    
+    NSURL *audioURL = [NSURL URLWithString:audioURLString];
+    if (!audioURL) {
+        dispatch_async(dispatch_get_main_queue(), ^{
+            [DYYYUtils showToast:@"语音URL格式错误"];
+        });
+        return;
+    }
+    
+    dispatch_async(dispatch_get_main_queue(), ^{
+        [DYYYUtils showToast:@"正在下载语音..."];
+    });
+    
+    NSURLSessionConfiguration *config = [NSURLSessionConfiguration defaultSessionConfiguration];
+    NSURLSession *session = [NSURLSession sessionWithConfiguration:config];
+    
+    NSURLSessionDownloadTask *downloadTask = [session downloadTaskWithURL:audioURL completionHandler:^(NSURL *location, NSURLResponse *response, NSError *error) {
+        if (error) {
+            dispatch_async(dispatch_get_main_queue(), ^{
+                [DYYYUtils showToast:[NSString stringWithFormat:@"下载失败: %@", error.localizedDescription]];
+            });
+            NSLog(@"[DYYY] 下载语音失败: %@", error);
+            return;
+        }
+        
+        if (!location) {
+            dispatch_async(dispatch_get_main_queue(), ^{
+                [DYYYUtils showToast:@"下载失败：无效的文件"];
+            });
+            return;
+        }
+        
+        NSDateFormatter *formatter = [[NSDateFormatter alloc] init];
+        formatter.dateFormat = @"yyyyMMdd_HHmmss";
+        NSDate *commentDate = [NSDate dateWithTimeIntervalSince1970:createTime];
+        NSString *timeString = [formatter stringFromDate:commentDate];
+        
+        NSString *safeUserName = userName ?: @"未知用户";
+        safeUserName = [safeUserName stringByReplacingOccurrencesOfString:@"/" withString:@"_"];
+        safeUserName = [safeUserName stringByReplacingOccurrencesOfString:@"\\" withString:@"_"];
+        
+        NSString *fileName = [NSString stringWithFormat:@"%@_%@.m4a", safeUserName, timeString];
+        NSString *tempDir = NSTemporaryDirectory();
+        NSString *targetPath = [tempDir stringByAppendingPathComponent:fileName];
+        
+        NSError *moveError = nil;
+        [[NSFileManager defaultManager] removeItemAtPath:targetPath error:nil];
+        [[NSFileManager defaultManager] moveItemAtPath:location.path toPath:targetPath error:&moveError];
+        
+        if (moveError) {
+            dispatch_async(dispatch_get_main_queue(), ^{
+                [DYYYUtils showToast:@"文件保存失败"];
+            });
+            NSLog(@"[DYYY] 移动文件失败: %@", moveError);
+            return;
+        }
+        
+        NSURL *fileURL = [NSURL fileURLWithPath:targetPath];
+        
+        dispatch_async(dispatch_get_main_queue(), ^{
+            UIViewController *topVC = [DYYYUtils topView];
+            if (!topVC) {
+                [DYYYUtils showToast:@"无法显示分享界面"];
+                return;
+            }
+            
+            UIActivityViewController *activityVC = [[UIActivityViewController alloc] initWithActivityItems:@[fileURL] applicationActivities:nil];
+            
+            activityVC.completionWithItemsHandler = ^(UIActivityType activityType, BOOL completed, NSArray *returnedItems, NSError *activityError) {
+                [[NSFileManager defaultManager] removeItemAtPath:targetPath error:nil];
+                
+                if (completed) {
+                    [DYYYUtils showToast:@"分享成功"];
+                } else if (activityError) {
+                    [DYYYUtils showToast:@"分享失败"];
+                }
+            };
+            
+            if ([activityVC respondsToSelector:@selector(popoverPresentationController)]) {
+                activityVC.popoverPresentationController.sourceView = topVC.view;
+                activityVC.popoverPresentationController.sourceRect = CGRectMake(topVC.view.bounds.size.width / 2, topVC.view.bounds.size.height / 2, 0, 0);
+            }
+            
+            [topVC presentViewController:activityVC animated:YES completion:nil];
+        });
+    }];
+    
+    [downloadTask resume];
+}
+
 @end

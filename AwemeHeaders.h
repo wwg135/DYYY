@@ -555,7 +555,14 @@ typedef NS_ENUM(NSUInteger, DYEdgeMode) {
 - (NSDictionary *)extraParams;
 @end
 
+@interface AWECommentAudioModel : NSObject
+@property (nonatomic, copy, readwrite) NSString *content;
+@end
+
 @interface AWECommentModel : NSObject
+@property (nonatomic, strong, readwrite) AWECommentAudioModel *audioModel;
+@property (nonatomic, strong, readwrite) AWEUserModel *author;
+@property (nonatomic, assign) long long createTime;
 - (AWEIMStickerModel *)sticker;
 - (NSString *)content;
 - (NSArray<AWECommentImageModel *> *)imageList;
@@ -571,6 +578,13 @@ typedef NS_ENUM(NSUInteger, DYEdgeMode) {
 
 @interface _TtC33AWECommentLongPressPanelSwiftImpl32CommentLongPressPanelCopyElement : NSObject
 - (AWECommentLongPressPanelContext *)commentPageContext;
+@end
+
+@interface AWECommentLongPressPanelSwiftImpl_CommentLongPressPanelReportElement : NSObject
+- (AWECommentLongPressPanelContext *)commentPageContext;
+- (BOOL)elementShouldShow;
+- (id)elementContent;
+- (id)elementImage;
 @end
 
 @interface AWEFeedProgressSlider : UIView
