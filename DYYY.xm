@@ -28,6 +28,9 @@
 #import "DYYYSettingViewController.h"
 #import "DYYYToast.h"
 #import "DYYYUtils.h"
+#import "DYYYFullscreenCoordinator.h"
+#import "DYYYCommentBlurCoordinator.h"
+#import "DYYYFloatingButtonCoordinator.h"
 
 static CGFloat gStartY = 0.0;
 static CGFloat gStartVal = 0.0;
@@ -221,7 +224,6 @@ static BOOL DYYYShouldHandleSpeedFeatures(void) {
     return fabsf(defaultSpeed - 1.0f) > FLT_EPSILON;
 }
 
-static __weak AWEPlayInteractionViewController *dyyyActiveSpeedInteractionController = nil;
 static __weak AWEAwemeModel *dyyyCurrentSpeedAweme = nil;
 static NSString *dyyyLastAutoRestoredSpeedAwemeIdentifier = nil;
 static BOOL dyyyLongPressFastSpeedActive = NO;
@@ -237,6 +239,7 @@ static CGFloat DYYYViewControllerVisibilityScore(UIViewController *viewControlle
         return -1.0;
     }
 
+    if (![DYYYFloatingButtonCoordinator isControllerVisible:viewController]) return -1.0;
     UIView *view = viewController.view;
     UIWindow *window = view.window;
     if (!window || view.hidden || view.alpha <= 0.01 || CGRectIsEmpty(view.bounds)) {
@@ -380,74 +383,21 @@ static AWEPlayInteractionViewController *DYYYResolveCurrentSpeedInteractionContr
 }
 
 id DYYYCurrentSpeedInteractionController(void) {
-    return DYYYResolveCurrentSpeedInteractionController(dyyyActiveSpeedInteractionController);
+    return [DYYYFloatingButtonCoordinator currentInteractionController];
 }
 
 static void DYYYEnsureFloatSpeedButton(AWEPlayInteractionViewController *interactionController) {
-    [FloatingSpeedButton reloadConfiguration];
-    AWEAwemeModel *targetAweme = dyyyCurrentSpeedAweme;
-    BOOL allowVisibleFallback = !targetAweme || (interactionController && DYYYAwemeModelsMatch(interactionController.model, targetAweme));
-    AWEPlayInteractionViewController *currentController = DYYYResolveSpeedInteractionController(interactionController, targetAweme, allowVisibleFallback);
-    if (!currentController) {
-        updateSpeedButtonVisibility();
-        return;
+    [DYYYFloatingButtonCoordinator registerInteractionController:interactionController];
+    AWEPlayInteractionViewController *currentController = (AWEPlayInteractionViewController *)DYYYCurrentSpeedInteractionController();
+    if (currentController) {
+        if ((dyyyLongPressFastSpeedActive || dyyyLongPressLockedSpeedActive) &&
+            currentController.model && !DYYYAwemeModelsMatch(dyyyCurrentSpeedAweme, currentController.model)) {
+            DYYYClearLongPressSpeedState();
+        }
+        dyyyCurrentSpeedAweme = currentController.model;
+        DYYYRestoreFloatSpeedButtonForAwemeIfNeeded(currentController.model);
     }
-
-    if ((dyyyLongPressFastSpeedActive || dyyyLongPressLockedSpeedActive) &&
-        currentController.model &&
-        !DYYYAwemeModelsMatch(dyyyCurrentSpeedAweme, currentController.model)) {
-        DYYYClearLongPressSpeedState();
-    }
-
-    dyyyActiveSpeedInteractionController = currentController;
-    dyyyCurrentSpeedAweme = currentController.model;
-    dyyyInteractionViewVisible = YES;
-
-    if (!isFloatSpeedButtonEnabled) {
-        updateSpeedButtonVisibility();
-        return;
-    }
-
-    UIWindow *keyWindow = [DYYYUtils getActiveWindow];
-    if (!keyWindow) {
-        return;
-    }
-
-    DYYYRestoreFloatSpeedButtonForAwemeIfNeeded(currentController.model);
-
-    if (!speedButton) {
-        CGRect windowBounds = keyWindow.bounds;
-        CGRect initialFrame = CGRectMake((windowBounds.size.width - speedButtonSize) / 2.0, (windowBounds.size.height - speedButtonSize) / 2.0, speedButtonSize, speedButtonSize);
-        speedButton = [[FloatingSpeedButton alloc] initWithFrame:initialFrame];
-        speedButton.interactionController = currentController;
-        updateSpeedButtonUI();
-    } else if (speedButton.interactionController != currentController) {
-        speedButton.interactionController = currentController;
-        [speedButton resetButtonState];
-    }
-
-    if (![speedButton isDescendantOfView:keyWindow]) {
-        [keyWindow addSubview:speedButton];
-        [speedButton loadSavedPosition];
-        [speedButton resetFadeTimer];
-    }
-
-    [keyWindow bringSubviewToFront:speedButton];
-    updateSpeedButtonVisibility();
-}
-
-// 提供给跨文件调用的刷新入口：根据当前可见 PlayInteractionVC 重新评估并恢复倍速按钮，
-// 用于清屏退出等场景，避免清屏期间 viewDidDisappear 把 dyyyInteractionViewVisible 置 NO 后状态卡住。
-void DYYYRefreshFloatSpeedButton(void) {
-    void (^applyBlock)(void) = ^{
-        AWEPlayInteractionViewController *currentController = (AWEPlayInteractionViewController *)DYYYCurrentSpeedInteractionController();
-        DYYYEnsureFloatSpeedButton(currentController);
-    };
-    if ([NSThread isMainThread]) {
-        applyBlock();
-    } else {
-        dispatch_async(dispatch_get_main_queue(), applyBlock);
-    }
+    [DYYYFloatingButtonCoordinator refresh];
 }
 
 static BOOL DYYYSetPlaybackRateOnTarget(id target, double speed) {
@@ -2811,6 +2761,22 @@ static void DYYYDisableAVPlayerItemHDRMetadata(AVPlayerItem *item) {
 // 前面的AWEDateTimeFormatter会导致图文视频展开时间文本变成时间戳，这里处理下
 %hook YYLabel
 
+- (void)setBackgroundColor:(UIColor *)color {
+    %orig([DYYYCommentBlurCoordinator backgroundColorForTextView:self proposed:color]);
+}
+- (void)setOpaque:(BOOL)opaque {
+    %orig([DYYYCommentBlurCoordinator opaqueForTextView:self proposed:opaque]);
+}
+- (void)didMoveToWindow {
+    %orig;
+    [DYYYCommentBlurCoordinator layoutTextView:self];
+}
+
+- (void)layoutSubviews {
+    %orig;
+    [DYYYCommentBlurCoordinator layoutTextView:self];
+}
+
 // 1. Hook 富文本赋值方法 (核心)
 - (void)setAttributedText:(NSAttributedString *)attributedText {
     if (!DYYYGetBool(@"DYYYCommentExactTime") || !attributedText || attributedText.length == 0) {
@@ -3380,16 +3346,7 @@ static void DYYYDisableAVPlayerItemHDRMetadata(AVPlayerItem *item) {
 
 %new
 - (void)applyBlurEffectIfNeeded {
-    if (DYYYGetBool(@"DYYYEnableCommentBlur") && [self isKindOfClass:NSClassFromString(@"AWECommentPanelContainerSwiftImpl.CommentContainerInnerViewController")]) {
-        // 动态获取用户设置的透明度
-        float userTransparency = [[[NSUserDefaults standardUserDefaults] objectForKey:@"DYYYCommentBlurTransparent"] floatValue];
-        if (userTransparency <= 0 || userTransparency > 1) {
-            userTransparency = 0.9;
-        }
-
-        // 应用毛玻璃效果
-        [DYYYUtils applyBlurEffectToView:self.view transparency:userTransparency blurViewTag:999];
-    }
+    [DYYYCommentBlurCoordinator layoutController:self];
 }
 %end
 
@@ -4040,6 +3997,7 @@ static NSString *const kDYYYLongPressCopyEnabledKey = @"DYYYLongPressCopyTextEna
         CGAffineTransform translationTransform = CGAffineTransformMakeTranslation(0, verticalOffset);
         grandParentView.transform = translationTransform;
     }
+    [DYYYFullscreenCoordinator layoutInformationLabel:self];
 }
 
 %end
@@ -4073,6 +4031,7 @@ static NSString *const kDYYYLongPressCopyEnabledKey = @"DYYYLongPressCopyTextEna
         CGAffineTransform translationTransform = CGAffineTransformMakeTranslation(translationX, verticalOffset);
         grandParentView.transform = translationTransform;
     }
+    [DYYYFullscreenCoordinator layoutInformationLabel:self];
 }
 
 %end
@@ -6246,6 +6205,9 @@ static void DYYYApplyAvatarFollowPromptSettingsWithRetry(id owner) {
 
 - (void)layoutSubviews {
     %orig;
+    if (DYYYGetBool(@"DYYYEnableCommentBlur") && (self.currentTitle.length > 0 || self.currentAttributedTitle.length > 0)) {
+        [DYYYCommentBlurCoordinator layoutTextView:self.titleLabel];
+    }
 
     NSString *accessibilityLabel = self.accessibilityLabel;
 
@@ -7517,6 +7479,17 @@ static void DYYYLiveDurationInstallFromInnerFeedCell(id cell) {
 // 隐藏昵称右侧
 %hook UILabel
 
+- (void)setBackgroundColor:(UIColor *)color {
+    %orig([DYYYCommentBlurCoordinator backgroundColorForTextView:self proposed:color]);
+}
+- (void)setOpaque:(BOOL)opaque {
+    %orig([DYYYCommentBlurCoordinator opaqueForTextView:self proposed:opaque]);
+}
+- (void)didMoveToWindow {
+    %orig;
+    [DYYYCommentBlurCoordinator layoutTextView:self];
+}
+
 static NSHashTable *processedParentViews = nil;
 
 + (void)load {
@@ -7529,6 +7502,7 @@ static NSHashTable *processedParentViews = nil;
 
 - (void)layoutSubviews {
     %orig;
+    [DYYYCommentBlurCoordinator layoutTextView:self];
 
     BOOL hideRightLabel = DYYYGetBool(@"DYYYHideRightLabel");
     if (!hideRightLabel)
@@ -10090,6 +10064,7 @@ static NSHashTable *processedParentViews = nil;
 %hook AWEPlayInteractionViewController
 
 - (void)performCommentAction {
+    [DYYYFullscreenCoordinator beginCommentInWindow:self.viewIfLoaded.window];
     %orig;
     DYYYApplyAvatarFollowPromptSettingsWithRetry(self);
 }
@@ -10660,6 +10635,7 @@ static Class tabBarButtonClass = nil;
     if (self.window) {
         [self initializeOriginalTabBarHeight];
     }
+    [DYYYFullscreenCoordinator registerTabBar:self];
 }
 
 - (void)layoutSubviews {
@@ -10797,6 +10773,7 @@ static Class tabBarButtonClass = nil;
             }
         }
     }
+    [DYYYFullscreenCoordinator registerTabBar:self];
 }
 
 - (void)setHidden:(BOOL)hidden {
@@ -10869,6 +10846,7 @@ static Class tabBarButtonClass = nil;
             }
         }
     }
+    [DYYYFullscreenCoordinator registerTabBar:self];
 }
 
 %end
@@ -11157,9 +11135,7 @@ static Class tabBarButtonClass = nil;
 
 - (void)viewDidAppear:(BOOL)animated {
     %orig;
-    dyyyCommentViewVisible = YES;
-    updateSpeedButtonVisibility();
-    updateClearButtonVisibility();
+    [DYYYFloatingButtonCoordinator commentController:self visible:YES];
     NSString *transparentValue = [[NSUserDefaults standardUserDefaults] objectForKey:@"DYYYTopBarTransparent"];
     if (transparentValue && transparentValue.length > 0) {
         CGFloat alphaValue = [transparentValue floatValue];
@@ -11180,13 +11156,15 @@ static Class tabBarButtonClass = nil;
 
 - (void)viewDidDisappear:(BOOL)animated {
     %orig;
-    dyyyCommentViewVisible = NO;
-    updateSpeedButtonVisibility();
-    updateClearButtonVisibility();
+    [DYYYFullscreenCoordinator commentController:self visible:NO];
+    [DYYYFloatingButtonCoordinator commentController:self visible:NO];
 }
 
 - (void)viewDidLayoutSubviews {
     %orig;
+    [DYYYCommentBlurCoordinator layoutController:self];
+    [DYYYFullscreenCoordinator commentController:self visible:YES];
+    [DYYYFloatingButtonCoordinator commentController:self visible:YES];
 
     if (!DYYYGetBool(@"DYYYEnableCommentBlur"))
         return;
@@ -11216,22 +11194,8 @@ static Class tabBarButtonClass = nil;
             }
         }
 
-        if (containsDanmu) {
-            UIView *parentView = middleContainer.superview;
-            for (UIView *innerSubview in parentView.subviews) {
-                if ([innerSubview isKindOfClass:[UIView class]]) {
-                    if (innerSubview.subviews.count > 0) {
-                        innerSubview.subviews[0].hidden = YES;
-                    }
-
-                    UIView *whiteBackgroundView = [[UIView alloc] initWithFrame:innerSubview.bounds];
-                    whiteBackgroundView.backgroundColor = [UIColor whiteColor];
-                    whiteBackgroundView.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
-                    [innerSubview addSubview:whiteBackgroundView];
-                    break;
-                }
-            }
-        } else {
+        [DYYYCommentBlurCoordinator layoutDanmuBackground:middleContainer controller:self enabled:containsDanmu];
+        if (!containsDanmu) {
             for (UIView *subview in middleContainer.subviews) {
                 if (subview.hidden == NO && subview.backgroundColor && CGColorGetAlpha(subview.backgroundColor.CGColor) == 1) {
                     [DYYYUtils applyBlurEffectToView:subview transparency:0.2f blurViewTag:999];
@@ -11248,6 +11212,7 @@ static Class tabBarButtonClass = nil;
 
 - (void)layoutSubviews {
     %orig;
+    [DYYYCommentBlurCoordinator layoutListView:self];
 
     if (!DYYYGetBool(@"DYYYEnableCommentBlur")) {
         return;
@@ -11303,33 +11268,19 @@ static Class tabBarButtonClass = nil;
     }
 }
 
-- (void)didMoveToWindow {
-    %orig;
-    if (!hideButton || !hideButton.isElementsHidden) {
-        DYYYRestoreClearTargetViewStateIfNeeded(self);
-    }
-}
-
 - (id)initWithFrame:(CGRect)frame {
     UIView *view = %orig;
-    if (hideButton && hideButton.isElementsHidden) {
-        for (NSString *className in targetClassNames) {
-            if ([view isKindOfClass:NSClassFromString(className)]) {
-                if ([view isKindOfClass:NSClassFromString(@"AWELeftSideBarEntranceView")]) {
-                    dispatch_async(dispatch_get_main_queue(), ^{
-                      UIViewController *controller = [hideButton findViewController:view];
-                      if ([controller isKindOfClass:NSClassFromString(@"AWEFeedContainerViewController")]) {
-                          DYYYApplyClearTargetViewHiddenState(view);
-                      }
-                    });
-                    break;
-                }
-                DYYYApplyClearTargetViewHiddenState(view);
-                break;
-            }
-        }
-    }
+    if (hideButton.isElementsHidden) [hideButton registerViewForHiding:view];
     return view;
+}
+
+- (void)didMoveToWindow {
+    %orig;
+    if (hideButton.isElementsHidden && self.window) {
+        [hideButton registerViewForHiding:self];
+    } else if (!hideButton.isElementsHidden) {
+        DYYYRestoreClearTargetViewStateIfNeeded(self);
+    }
 }
 
 - (void)setBackgroundColor:(UIColor *)backgroundColor {
@@ -11371,16 +11322,16 @@ static Class tabBarButtonClass = nil;
     }
 
     if (DYYYGetBool(@"DYYYEnableFullScreen") || DYYYGetBool(@"DYYYEnableCommentBlur")) {
-        UIViewController *vc = [DYYYUtils firstAvailableViewControllerFromView:self];
-        if ([vc isKindOfClass:%c(AWEPlayInteractionViewController)]) {
-            for (UIView *subview in self.subviews) {
-                if ([subview isKindOfClass:[UIView class]] && subview.backgroundColor && CGColorEqualToColor(subview.backgroundColor.CGColor, [UIColor blackColor].CGColor)) {
-                    subview.hidden = YES;
-                }
-            }
+        UIViewController *vc = nil;
+        for (UIView *subview in self.subviews) {
+            if (subview.hidden || !subview.backgroundColor || !CGColorEqualToColor(subview.backgroundColor.CGColor, UIColor.blackColor.CGColor)) continue;
+            if (!vc) vc = [DYYYUtils firstAvailableViewControllerFromView:self];
+            if (![vc isKindOfClass:%c(AWEPlayInteractionViewController)]) break;
+            subview.hidden = YES;
         }
     }
 }
+
 
 - (void)setFrame:(CGRect)frame {
     if (![NSThread isMainThread]) {
@@ -11392,14 +11343,33 @@ static Class tabBarButtonClass = nil;
 
     BOOL enableBlur = DYYYGetBool(@"DYYYEnableCommentBlur");
     BOOL enableFS = DYYYGetBool(@"DYYYEnableFullScreen");
+    if (!enableFS && (!enableBlur || frame.origin.x == 0)) {
+        %orig(frame);
+        return;
+    }
+
+    frame = [DYYYFullscreenCoordinator frameForInteractionView:self proposed:frame];
+
+    // 只有原逻辑真正可能改写 frame 时，才查询所属控制器。
+    BOOL needsBlurCheck = enableBlur && frame.origin.x != 0;
+    CGRect superF = enableFS ? self.superview.frame : CGRectZero;
+    CGFloat difference = CGRectGetHeight(superF) - CGRectGetHeight(frame);
+    BOOL needsImageCheck = enableFS && (frame.origin.x == 0 || frame.origin.y == 0) &&
+        CGRectGetHeight(frame) > 0 && difference > 0 && fabs(difference - gCurrentTabBarHeight) < 1.0;
+    if (!needsBlurCheck && !needsImageCheck) {
+        %orig(frame);
+        return;
+    }
 
     UIViewController *vc = [DYYYUtils firstAvailableViewControllerFromView:self];
-    Class DetailVCClass = NSClassFromString(@"AWEMixVideoPanelDetailTableViewController");
-    Class PlayVCClass1 = NSClassFromString(@"AWEAwemePlayVideoViewController");
-    Class PlayVCClass2 = NSClassFromString(@"AWEDPlayerFeedPlayerViewController");
-    Class PlayVCClass3 = NSClassFromString(@"AWEDPlayerViewController_Merge");
+    static Class PlayVCClass1, PlayVCClass2, PlayVCClass3;
+    static dispatch_once_t playClassesOnce;
+    dispatch_once(&playClassesOnce, ^{
+        PlayVCClass1 = NSClassFromString(@"AWEAwemePlayVideoViewController");
+        PlayVCClass2 = NSClassFromString(@"AWEDPlayerFeedPlayerViewController");
+        PlayVCClass3 = NSClassFromString(@"AWEDPlayerViewController_Merge");
+    });
 
-    BOOL isDetailVC = (DetailVCClass && [vc isKindOfClass:DetailVCClass]);
     BOOL isPlayVC = ((PlayVCClass1 && [vc isKindOfClass:PlayVCClass1]) ||
                      (PlayVCClass2 && [vc isKindOfClass:PlayVCClass2]) ||
                      (PlayVCClass3 && [vc isKindOfClass:PlayVCClass3]));
@@ -11410,12 +11380,11 @@ static Class tabBarButtonClass = nil;
         }
     }
 
-    if (isPlayVC && enableFS) {
+    if (isPlayVC && enableFS && [DYYYFullscreenCoordinator isImageContentController:vc]) {
         if (frame.origin.x != 0 && frame.origin.y != 0) {
             %orig(frame);
             return;
         }
-        CGRect superF = self.superview.frame;
         if (CGRectGetHeight(superF) > 0 && CGRectGetHeight(frame) > 0 && CGRectGetHeight(frame) < CGRectGetHeight(superF)) {
             CGFloat diff = CGRectGetHeight(superF) - CGRectGetHeight(frame);
             if (fabs(diff - gCurrentTabBarHeight) < 1.0) {
@@ -11487,6 +11456,7 @@ static Class tabBarButtonClass = nil;
 
 %hook AWEPlayInteractionViewController
 
+
 - (void)onVideoPlayerViewDoubleClicked:(id)arg1 {
     BOOL isSwitchOn = DYYYGetBool(@"DYYYDisableDoubleTapLike");
     if (!isSwitchOn) {
@@ -11496,23 +11466,19 @@ static Class tabBarButtonClass = nil;
 
 - (void)viewWillAppear:(BOOL)animated {
     %orig;
-    isInPlayInteractionVC = YES;
     dyyyCurrentSpeedAweme = self.model;
     DYYYRestoreFloatSpeedButtonForAwemeIfNeeded(self.model);
     DYYYEnsureFloatSpeedButton(self);
-    reloadClearButtonConfiguration();
 }
 
 - (void)viewDidLayoutSubviews {
     %orig;
 
-    if (self.view.window && !self.view.hidden) {
-        DYYYEnsureFloatSpeedButton(self);
-        reloadClearButtonConfiguration();
-    } else {
-        [FloatingSpeedButton reloadConfiguration];
-        updateClearButtonVisibility();
-    }
+    [DYYYFloatingButtonCoordinator registerInteractionController:self];
+
+    [DYYYFullscreenCoordinator layoutInteraction:self];
+    if (![DYYYFullscreenCoordinator isImageContentController:self]) return;
+    if ([DYYYFullscreenCoordinator hasCommentInWindow:self.viewIfLoaded.window]) return;
 
     UIWindow *keyWindow = [DYYYUtils getActiveWindow];
     if (keyWindow && keyWindow.safeAreaInsets.bottom == 0) {
@@ -11588,25 +11554,12 @@ static Class tabBarButtonClass = nil;
     if (fabs(frame.size.height - self.view.frame.size.height) > 0.5) {
         self.view.frame = frame;
     }
+    [DYYYFullscreenCoordinator rememberInteractionGuide:self];
 }
 
 - (void)viewDidDisappear:(BOOL)animated {
     %orig;
-    if (dyyyActiveSpeedInteractionController == self) {
-        AWEPlayInteractionViewController *replacementController = DYYYResolveCurrentSpeedInteractionController(nil);
-        if (replacementController && replacementController != self) {
-            DYYYEnsureFloatSpeedButton(replacementController);
-        } else {
-            dyyyActiveSpeedInteractionController = nil;
-            dyyyInteractionViewVisible = NO;
-            dyyyCommentViewVisible = self.isCommentVCShowing;
-            updateSpeedButtonVisibility();
-            dispatch_async(dispatch_get_main_queue(), ^{
-              DYYYEnsureFloatSpeedButton(nil);
-            });
-        }
-        updateClearButtonVisibility();
-    }
+    [DYYYFloatingButtonCoordinator refresh];
 }
 
 %new
@@ -11705,7 +11658,7 @@ static Class tabBarButtonClass = nil;
 
 - (void)viewDidLayoutSubviews {
     %orig;
-    if (DYYYGetBool(@"DYYYEnableFullScreen")) {
+    if (DYYYGetBool(@"DYYYEnableFullScreen") && [DYYYFullscreenCoordinator isImageContentController:self]) {
         UIView *contentView = self.contentView;
         if (contentView && contentView.superview) {
             CGRect frame = contentView.frame;
@@ -11754,7 +11707,7 @@ static Class tabBarButtonClass = nil;
 
 - (void)viewDidLayoutSubviews {
     %orig;
-    if (DYYYGetBool(@"DYYYEnableFullScreen")) {
+    if (DYYYGetBool(@"DYYYEnableFullScreen") && [DYYYFullscreenCoordinator isImageContentController:self]) {
         UIView *contentView = self.contentView;
         if (contentView && contentView.superview) {
             CGRect frame = contentView.frame;
@@ -11848,35 +11801,50 @@ static Class tabBarButtonClass = nil;
 %hook UIViewController
 - (void)viewWillAppear:(BOOL)animated {
     %orig;
-    isAppInTransition = YES;
-    if (hideButton && hideButton.isElementsHidden) {
-        [hideButton hideUIElements];
-    }
-    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.5 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
-      isAppInTransition = NO;
-    });
+    if (hideButton.isElementsHidden) [hideButton hideUIElements];
+    [DYYYFloatingButtonCoordinator setNeedsRefresh];
 }
 
 - (void)viewWillDisappear:(BOOL)animated {
     %orig;
-    isAppInTransition = YES;
-    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.5 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
-      isAppInTransition = NO;
-    });
+    [DYYYFloatingButtonCoordinator setNeedsRefresh];
+}
+
+- (void)viewDidAppear:(BOOL)animated {
+    %orig;
+    [DYYYFloatingButtonCoordinator refresh];
+}
+
+- (void)viewDidDisappear:(BOOL)animated {
+    %orig;
+    [DYYYFloatingButtonCoordinator refresh];
+}
+%end
+
+// 缓存中的 Feed 子控制器不一定重新出现，Tab 选中和内容替换必须主动刷新。
+%hook AWENormalModeTabBarController
+- (void)setSelectedIndex:(NSUInteger)index {
+    %orig;
+    [DYYYFloatingButtonCoordinator refresh];
+    [DYYYFloatingButtonCoordinator setNeedsRefresh];
+}
+
+- (void)p_updateCurrentRootController:(UIViewController *)controller {
+    %orig;
+    [DYYYFloatingButtonCoordinator refresh];
+    [DYYYFloatingButtonCoordinator setNeedsRefresh];
 }
 %end
 
 %hook AFDPureModePageContainerViewController
 - (void)viewDidAppear:(BOOL)animated {
     %orig;
-    isPureViewVisible = YES;
-    updateClearButtonVisibility();
+    [DYYYFloatingButtonCoordinator pureModeController:self visible:YES];
 }
 
 - (void)viewDidDisappear:(BOOL)animated {
     %orig;
-    isPureViewVisible = NO;
-    updateClearButtonVisibility();
+    [DYYYFloatingButtonCoordinator pureModeController:self visible:NO];
 }
 %end
 
@@ -11943,30 +11911,29 @@ static void DYYYRemoveKeyboardObserver(void) {
 
     [[NSUserDefaults standardUserDefaults] addObserver:(NSObject *)self forKeyPath:kDYYYGlobalTransparencyKey options:NSKeyValueObservingOptionNew context:DYYYGlobalTransparencyContext];
 
-    reloadClearButtonConfiguration();
+    [DYYYFloatingButtonCoordinator reloadConfiguration];
     DYYYRemoveAppLifecycleObservers();
 
     dyyyWindowKeyObserverToken = [[NSNotificationCenter defaultCenter] addObserverForName:UIWindowDidBecomeKeyNotification
                                                                                    object:nil
                                                                                     queue:[NSOperationQueue mainQueue]
                                                                                usingBlock:^(NSNotification *_Nonnull notification) {
-                                                                                 reloadClearButtonConfiguration();
+                                                                                 [DYYYFloatingButtonCoordinator reloadConfiguration];
                                                                                }];
 
     dyyyDidBecomeActiveToken = [[NSNotificationCenter defaultCenter] addObserverForName:UIApplicationDidBecomeActiveNotification
                                                                                  object:nil
                                                                                   queue:[NSOperationQueue mainQueue]
                                                                              usingBlock:^(NSNotification *_Nonnull notification) {
-                                                                               isAppActive = YES;
-                                                                               reloadClearButtonConfiguration();
+                                                                               [DYYYFloatingButtonCoordinator setApplicationActive:YES];
+                                                                               [DYYYFloatingButtonCoordinator reloadConfiguration];
                                                                              }];
 
     dyyyWillResignActiveToken = [[NSNotificationCenter defaultCenter] addObserverForName:UIApplicationWillResignActiveNotification
                                                                                   object:nil
                                                                                    queue:[NSOperationQueue mainQueue]
                                                                               usingBlock:^(NSNotification *_Nonnull notification) {
-                                                                                isAppActive = NO;
-                                                                                updateClearButtonVisibility();
+                                                                                [DYYYFloatingButtonCoordinator setApplicationActive:NO];
                                                                               }];
 
     return result;
@@ -12067,19 +12034,6 @@ static Class TagViewClass = nil;
     attempts = 0;
     pureModeSet = NO;
 
-    // 倍速和清屏按钮的状态控制
-    BOOL hasFloatingButtons = (speedButton && isFloatSpeedButtonEnabled) || hideButton;
-    if (!isApplyingGlobal && hasFloatingButtons && !dyyyIsPerformingFloatClearOperation) {
-        const CGFloat threshold = 0.01f;
-        if (alpha <= threshold) {
-            dyyyCommentViewVisible = YES;
-        } else if (alpha >= (1.0f - threshold)) {
-            dyyyCommentViewVisible = NO;
-        }
-        updateSpeedButtonVisibility();
-        updateClearButtonVisibility();
-    }
-
     // 值守全局透明度
     CGFloat finalAlpha = alpha;
     if (!isApplyingGlobal && self.tag != DYYY_IGNORE_GLOBAL_ALPHA_TAG && gGlobalTransparency != kInvalidAlpha) {
@@ -12097,20 +12051,6 @@ static Class TagViewClass = nil;
     GuideViewClass = NSClassFromString(@"AWELivePrestreamGuideView");
     MuteViewClass = NSClassFromString(@"AFDCancelMuteAwemeView");
     TagViewClass = NSClassFromString(@"AWELiveFeedLabelTagView");
-}
-
-- (void)viewDidAppear:(BOOL)animated {
-    %orig;
-    dyyyCommentViewVisible = NO;
-    updateSpeedButtonVisibility();
-    updateClearButtonVisibility();
-}
-
-- (void)viewDidDisappear:(BOOL)animated {
-    %orig;
-    dyyyCommentViewVisible = YES;
-    updateSpeedButtonVisibility();
-    updateClearButtonVisibility();
 }
 
 - (void)didMoveToWindow {
@@ -12306,16 +12246,6 @@ static Class TagViewClass = nil;
         objc_setAssociatedObject(self, &kDYYYGlobalTransparencyBaseAlphaKey, @(alpha), OBJC_ASSOCIATION_RETAIN_NONATOMIC);
     }
 
-    if (!isApplyingGlobal && speedButton && isFloatSpeedButtonEnabled) {
-        if (alpha == 0) {
-            dyyyCommentViewVisible = YES;
-        } else if (alpha == 1) {
-            dyyyCommentViewVisible = NO;
-        }
-        updateSpeedButtonVisibility();
-        updateClearButtonVisibility();
-    }
-
     CGFloat finalAlpha = alpha;
     if (!isApplyingGlobal && self.tag != DYYY_IGNORE_GLOBAL_ALPHA_TAG && gGlobalTransparency != kInvalidAlpha) {
         CGFloat clampedAlpha = MIN(MAX(alpha, 0.0), 1.0);
@@ -12489,15 +12419,44 @@ static Class TagViewClass = nil;
 %end
 
 %hook TTPlayerView
-
-- (void)layoutSubviews {
-    %orig;
-    UIView *parent = self.superview;
-    if (parent) {
-        parent.backgroundColor = self.backgroundColor;
+- (void)setFrame:(CGRect)frame {
+    if (![NSThread isMainThread]) {
+        __weak UIView *weakView = self;
+        dispatch_async(dispatch_get_main_queue(), ^{ weakView.frame = frame; });
+        return;
     }
+    %orig([DYYYFullscreenCoordinator frameForPlayer:self proposed:frame]);
 }
 
+- (void)layoutSubviews {
+    [DYYYFullscreenCoordinator preparePlayer:self];
+    %orig;
+    UIView *parent = self.superview;
+    if (parent) parent.backgroundColor = self.backgroundColor;
+    [DYYYFullscreenCoordinator finishPlayer:self];
+}
+%end
+
+// 隐藏图片滑条
+%hook AWEStoryProgressContainerView
+- (void)setCenter:(CGPoint)center {
+    UIViewController *vc = [DYYYUtils firstAvailableViewControllerFromView:self];
+    if ([vc isKindOfClass:NSClassFromString(@"AWEFeedPlayControlImpl.PureModePageCellViewController")] && DYYYGetBool(@"DYYYEnableFullScreen")) {
+        center.y -= gCurrentTabBarHeight;
+    }
+    %orig(center);
+}
+
+- (BOOL)isHidden {
+    BOOL originalValue = %orig;
+    BOOL customHide = DYYYGetBool(@"DYYYHideDotsIndicator");
+    return originalValue || customHide;
+}
+
+- (void)setHidden:(BOOL)hidden {
+    BOOL forceHide = DYYYGetBool(@"DYYYHideDotsIndicator");
+    %orig(forceHide ? YES : hidden);
+}
 %end
 
 %hook TTMetalView
@@ -12510,7 +12469,7 @@ static Class TagViewClass = nil;
         if (viewWidth + 0.5f >= screenWidth) {
             UIViewController *vc = [DYYYUtils firstAvailableViewControllerFromView:view];
             Class playClass = %c(AWEPlayVideoViewController);
-            if (playClass && [vc isKindOfClass:playClass]) {
+            if (playClass && [vc isKindOfClass:playClass] && [DYYYFullscreenCoordinator isImageContentController:vc]) {
                 AWEPlayVideoViewController *playVC = (AWEPlayVideoViewController *)vc;
                 AWEAwemeModel *model = playVC.model;
                 if ([model respondsToSelector:@selector(isShowLandscapeEntryView)] && model.isShowLandscapeEntryView) {
@@ -12541,7 +12500,7 @@ static Class TagViewClass = nil;
         if (viewWidth + 0.5f >= screenWidth) {
             UIViewController *vc = [DYYYUtils firstAvailableViewControllerFromView:view];
             Class playClass = %c(AWEPlayVideoViewController);
-            if (playClass && [vc isKindOfClass:playClass]) {
+            if (playClass && [vc isKindOfClass:playClass] && [DYYYFullscreenCoordinator isImageContentController:vc]) {
                 AWEPlayVideoViewController *playVC = (AWEPlayVideoViewController *)vc;
                 AWEAwemeModel *model = playVC.model;
                 if ([model respondsToSelector:@selector(isShowLandscapeEntryView)] && model.isShowLandscapeEntryView) {
@@ -12572,7 +12531,7 @@ static Class TagViewClass = nil;
         if (viewWidth + 0.5f >= screenWidth) {
             UIViewController *vc = [DYYYUtils firstAvailableViewControllerFromView:view];
             Class playClass = %c(AWEPlayVideoViewController);
-            if (playClass && [vc isKindOfClass:playClass]) {
+            if (playClass && [vc isKindOfClass:playClass] && [DYYYFullscreenCoordinator isImageContentController:vc]) {
                 AWEPlayVideoViewController *playVC = (AWEPlayVideoViewController *)vc;
                 AWEAwemeModel *model = playVC.model;
                 if ([model respondsToSelector:@selector(isShowLandscapeEntryView)] && model.isShowLandscapeEntryView) {
@@ -12594,26 +12553,7 @@ static Class TagViewClass = nil;
 %end
 
 // 隐藏图片滑条
-%hook AWEStoryProgressContainerView
-- (void)setCenter:(CGPoint)center {
-    UIViewController *vc = [DYYYUtils firstAvailableViewControllerFromView:self];
-    if ([vc isKindOfClass:NSClassFromString(@"AWEFeedPlayControlImpl.PureModePageCellViewController")] && DYYYGetBool(@"DYYYEnableFullScreen")) {
-        center.y -= gCurrentTabBarHeight;
-    }
-    %orig(center);
-}
 
-- (BOOL)isHidden {
-    BOOL originalValue = %orig;
-    BOOL customHide = DYYYGetBool(@"DYYYHideDotsIndicator");
-    return originalValue || customHide;
-}
-
-- (void)setHidden:(BOOL)hidden {
-    BOOL forceHide = DYYYGetBool(@"DYYYHideDotsIndicator");
-    %orig(forceHide ? YES : hidden);
-}
-%end
 
 %hook AWELandscapeFeedEntryView
 
@@ -12673,22 +12613,6 @@ static Class TagViewClass = nil;
     } else {
         self.transform = CGAffineTransformIdentity;
     }
-}
-
-%end
-
-%hook AWEAwemeDetailTableView
-
-- (void)setFrame:(CGRect)frame {
-    if (DYYYGetBool(@"DYYYEnableFullScreen")) {
-        CGFloat screenHeight = [UIScreen mainScreen].bounds.size.height;
-
-        CGFloat remainder = fmod(frame.size.height, screenHeight);
-        if (remainder != 0) {
-            frame.size.height += (screenHeight - remainder);
-        }
-    }
-    %orig(frame);
 }
 
 %end
@@ -13003,6 +12927,22 @@ static NSString *const kHideRecentUsersKey = @"DYYYHideSidebarRecentUsers";
 %end
 %end
 
+%hook AWEAwemeDetailTableView
+
+- (void)setFrame:(CGRect)frame {
+    if (DYYYGetBool(@"DYYYEnableFullScreen")) {
+        CGFloat screenHeight = [UIScreen mainScreen].bounds.size.height;
+
+        CGFloat remainder = fmod(frame.size.height, screenHeight);
+        if (remainder != 0) {
+            frame.size.height += (screenHeight - remainder);
+        }
+    }
+    %orig(frame);
+}
+
+%end
+
 // View scaling fix when comment blur is enabled
 %group BDMultiContentImageViewGroup
 %hook BDMultiContentContainer_ImageContentView
@@ -13093,7 +13033,35 @@ static void findTargetViewInView(UIView *view) {
     }
 }
 
+// 在原生评论动画启动前锁定关闭态，避免缓存到动画中的媒体几何。
+%hook AWEPlayInteractionCommentPanelController
+- (void)performCommentAction {
+    [DYYYFullscreenCoordinator beginCommentInWindow:[DYYYUtils getActiveWindow]];
+    %orig;
+}
+%end
+
+%group DYYYFullscreenCommentGroup
+%hook AWECommentPanelContainerSwiftImpl_CommentContainerInnerViewController
+- (void)viewDidLayoutSubviews {
+    %orig;
+    [DYYYCommentBlurCoordinator layoutController:self];
+    [DYYYFullscreenCoordinator commentController:self visible:YES];
+    [DYYYFloatingButtonCoordinator commentController:self visible:YES];
+}
+- (void)viewDidDisappear:(BOOL)animated {
+    %orig;
+    [DYYYFullscreenCoordinator commentController:self visible:NO];
+    [DYYYFloatingButtonCoordinator commentController:self visible:NO];
+}
+%end
+%end
+
 %ctor {
+    Class fullscreenCommentClass = objc_getClass("AWECommentPanelContainerSwiftImpl.CommentContainerInnerViewController");
+    if (fullscreenCommentClass && [fullscreenCommentClass isSubclassOfClass:[UIViewController class]]) {
+        %init(DYYYFullscreenCommentGroup, AWECommentPanelContainerSwiftImpl_CommentContainerInnerViewController = fullscreenCommentClass);
+    }
     [[NSUserDefaults standardUserDefaults] registerDefaults:@{
         @"DYYYDisableFeedNowPlayingInfo" : @YES
     }];
@@ -13139,13 +13107,14 @@ static void findTargetViewInView(UIView *view) {
             DYYYGetBool(@"DYYYForceDownloadCommentImage")) {
             %init(EnableStickerSaveMenu);
         }
-        [FloatingSpeedButton reloadConfiguration];
+        [DYYYFloatingButtonCoordinator reloadConfiguration];
 
         // 初始化红包激励挂件容器视图类组
         Class incentivePendantClass = objc_getClass("AWEIncentiveSwiftImplDOUYINLite.IncentivePendantContainerView");
         if (incentivePendantClass) {
             %init(IncentivePendantGroup, AWEIncentiveSwiftImplDOUYINLite_IncentivePendantContainerView = incentivePendantClass);
         }
+
         Class imageContentClass = objc_getClass("BDMultiContentContainer.ImageContentView");
         if (imageContentClass) {
             %init(BDMultiContentImageViewGroup, BDMultiContentContainer_ImageContentView = imageContentClass);

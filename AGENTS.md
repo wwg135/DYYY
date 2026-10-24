@@ -5,6 +5,8 @@
 ## 工程关键点
 - **Hook 入口**：`DYYY.xm` 负责 Feed、浮窗、全局透明度与 Tab Bar 高度等通用 Hook；`DYYYSettings.xm` 负责抖音设置页相关 Hook（`AWESettingBaseViewController`、`AWELeftSideBarWeatherLabel` 等）并构造 DYYY 自定义设置。
 - **业务核心**：`DYYYManager` 统一处理媒体下载、批量任务、Live Photo/GIF/WebP 转换及保存流程，内部维护 `NSOperationQueue` 与下载任务/回调映射；`DYYYSettingsHelper` 管理设置依赖、入口查找、用户协议弹窗；`DYYYUtils` 处理 IP 属地、颜色、窗口查找、缓存路径等可复用逻辑。
+- **评论材质**：`DYYYCommentBlurCoordinator.(h/m)` 跟随实际评论面板管理毛玻璃与开关恢复。
+- **全屏布局**：`DYYYFullscreenCoordinator.(h/m)` 协调媒体容器与评论遮挡；`DYYYFullscreenGeometry.(h/m)` 提供可独立验证的纯几何计算。
 - **UI 组件**：所有自定义视图/弹窗（如 `DYYYBottomAlertView`、`DYYYFloatSpeedButton`、`DYYYAboutDialogView` 等）都有 `.h/.m` 配对文件，并在设置控制器中组合使用。
 - **模型/数据**：`CityManager` 负责本地城市映射与 GeoNames 查询；GeoNames 结果缓存逻辑在 `DYYYUtils`；`DYYYConstants.h`、`DYYYSettingsHelper` 中定义的 Key 控制远程 ABTest、依赖关系与通知。
 - **AwemeHeaders**：项目依赖的抖音私有类、Category 声明、宏定义都集中在 `AwemeHeaders.h` 中，供整个 tweak 引入。
@@ -16,6 +18,7 @@
   - `DYYYSettingsHelper.(h/m)`：设置项依赖、入口、协议弹窗。
 - **业务/下载**
   - `DYYYManager.(h/m)`：下载、合成、任务管理、授权。
+  - `DYYYDownloadScheduler.(h/m)`：下载并发限制、等待队列与取消调度。
   - `CityManager.(h/m)`：城市映射与 GeoNames 查询。
   - `AWMSafeDispatchTimer.(h/m)`：安全延时定时器。
 - **通用工具/常量**
@@ -26,6 +29,7 @@
   - 输入/图标配置：`DYYYCustomInputView.(h/m)`、`DYYYIconOptionsDialogView.(h/m)`、`DYYYImagePickerDelegate.(h/m)`、`DYYYBackupPickerDelegate.(h/m)`。
   - 弹窗/提示：`DYYYBottomAlertView.(h/m)`、`DYYYConfirmCloseView.(h/m)`、`DYYYAboutDialogView.(h/m)`、`DYYYToast.(h/m)`。
 - **浮窗与快捷操作**
+  - 显示协调：`DYYYFloatingButtonCoordinator.(h/m)`，根据实际选中页面、评论、纯净模式与前后台状态统一管理两个悬浮按钮。
   - 漂浮按钮：`DYYYFloatSpeedButton.(h/m)`、`DYYYFloatClearButton.(h/xm)`。
   - 长按/面板：`DYYYLongPressPanel.xm`、`DYYYBottomAlertView.(h/m)`（复用提示）。
 - **辅助代理**

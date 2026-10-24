@@ -106,6 +106,9 @@ NS_ASSUME_NONNULL_BEGIN
 
 #pragma mark - Public File Management (公共文件管理)
 
+/// 为一次下载创建独立文件名，避免相同 URL 路径的并发任务覆盖彼此。
++ (NSURL *)uniqueTemporaryFileURLWithFileName:(NSString *)fileName;
+
 /**格式化大小
  * 将大小转换为易读的格式
  * @param size 文件大小（字节数）

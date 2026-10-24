@@ -7,15 +7,8 @@ extern "C" {
 @class HideUIButton;
 
 extern HideUIButton *hideButton;
-extern BOOL isInPlayInteractionVC;
-extern BOOL isPureViewVisible;
-extern BOOL clearButtonForceHidden;
-extern BOOL isAppActive;
 extern BOOL dyyyIsPerformingFloatClearOperation;
-extern BOOL isAppInTransition;
 extern NSArray *targetClassNames;
-extern BOOL dyyyInteractionViewVisible;
-extern BOOL dyyyCommentViewVisible;
 extern char dyyyClearOriginalAlphaKey;
 
 BOOL DYYYIsDynamicAlphaView(UIView *view);
@@ -24,9 +17,6 @@ void DYYYRestoreClearTargetViewStateIfNeeded(UIView *view);
 
 UIWindow *getKeyWindow(void);
 
-void updateClearButtonVisibility(void);
-void showClearButton(void);
-void hideClearButton(void);
 void initTargetClassNames(void);
 void reloadClearButtonConfiguration(void);
 void DYYYApplyFloatClearProgressStateToView(UIView *view);
@@ -38,7 +28,8 @@ void DYYYApplyFloatClearProgressStateToView(UIView *view);
 @interface HideUIButton : UIButton
 @property(nonatomic, assign) BOOL isElementsHidden;
 @property(nonatomic, assign) BOOL isLocked;
-@property(nonatomic, strong) NSMutableArray *hiddenViewsList;
+@property(nonatomic, strong) NSHashTable<UIView *> *hiddenViewsList;
+- (void)registerViewForHiding:(UIView *)view;
 @property(nonatomic, strong) UIImage *showIcon;
 @property(nonatomic, strong) UIImage *hideIcon;
 @property(nonatomic, assign) CGFloat originalAlpha;

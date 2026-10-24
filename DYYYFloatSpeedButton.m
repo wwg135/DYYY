@@ -10,58 +10,10 @@
 @class AWEFeedCellViewController;
 
 FloatingSpeedButton *speedButton = nil;
-BOOL dyyyCommentViewVisible = NO;
 BOOL showSpeedX = NO;
 CGFloat speedButtonSize = 32.0;
 BOOL isFloatSpeedButtonEnabled = NO;
-BOOL speedButtonForceHidden = NO;
-BOOL dyyyInteractionViewVisible = NO;
-
 static NSString *const kDYYYDefaultSpeedSettingsString = @"0.75,1.0,1.25,1.5,2.0,2.5,3.0";
-
-static void DYYYApplySpeedButtonHiddenState(UIView *button, BOOL hidden) {
-    if (!button) {
-        return;
-    }
-    void (^applyBlock)(UIView *) = ^(UIView *target) {
-        if (!target) {
-            return;
-        }
-        if (target.hidden != hidden) {
-            target.hidden = hidden;
-        }
-    };
-
-    if ([NSThread isMainThread]) {
-        applyBlock(button);
-    } else {
-        __weak UIView *weakButton = button;
-        dispatch_async(dispatch_get_main_queue(), ^{
-            applyBlock(weakButton);
-        });
-    }
-}
-
-static BOOL DYYYShouldHideSpeedButton(void) {
-    BOOL clearModeActive = (hideButton && hideButton.isElementsHidden);
-    if (clearModeActive) {
-        BOOL hideSpeedInClearMode = [[NSUserDefaults standardUserDefaults] boolForKey:@"DYYYHideSpeed"];
-        if (hideSpeedInClearMode) {
-            return YES;
-        }
-        return speedButtonForceHidden;
-    }
-    if (!dyyyInteractionViewVisible) {
-        return YES;
-    }
-    if (dyyyCommentViewVisible) {
-        return YES;
-    }
-    if (speedButtonForceHidden) {
-        return YES;
-    }
-    return NO;
-}
 
 static NSString *DYYYFormatSpeedOption(double speed) {
     NSString *speedString = [NSString stringWithFormat:@"%.2f", speed];
@@ -276,50 +228,48 @@ NSArray *findViewControllersInHierarchy(UIViewController *rootViewController) {
     return viewControllers;
 }
 
-void showSpeedButton(void) {
-    speedButtonForceHidden = NO;
-    updateSpeedButtonVisibility();
-}
-
-void hideSpeedButton(void) {
-    speedButtonForceHidden = YES;
-    updateSpeedButtonVisibility();
-}
-
-void updateSpeedButtonVisibility() {
-    if (!speedButton)
-        return;
-
-    DYYYApplySpeedButtonHiddenState(speedButton, !isFloatSpeedButtonEnabled || DYYYShouldHideSpeedButton());
-}
-
 @implementation FloatingSpeedButton
 
 + (void)reloadConfiguration {
-    NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
-    isFloatSpeedButtonEnabled = [defaults boolForKey:@"DYYYEnableFloatSpeedButton"];
-    showSpeedX = [defaults boolForKey:@"DYYYSpeedButtonShowX"];
-
-    CGFloat configuredSize = [defaults floatForKey:@"DYYYSpeedButtonSize"];
-    if (configuredSize <= 0.0) {
-        configuredSize = 32.0;
+    if (!NSThread.isMainThread) {
+        dispatch_async(dispatch_get_main_queue(), ^{ [self reloadConfiguration]; });
+        return;
     }
-    speedButtonSize = MIN(MAX(configuredSize, 20.0), 60.0);
+    NSUserDefaults *defaults = NSUserDefaults.standardUserDefaults;
+    BOOL enabled = [defaults boolForKey:@"DYYYEnableFloatSpeedButton"];
+    BOOL showX = [defaults boolForKey:@"DYYYSpeedButtonShowX"];
+    CGFloat configuredSize = [defaults floatForKey:@"DYYYSpeedButtonSize"];
+    CGFloat size = MIN(MAX(configuredSize > 0 ? configuredSize : 32.0, 20.0), 60.0);
+    BOOL changed = enabled != isFloatSpeedButtonEnabled || showX != showSpeedX || fabs(size - speedButtonSize) > FLT_EPSILON;
+    isFloatSpeedButtonEnabled = enabled;
+    showSpeedX = showX;
+    speedButtonSize = size;
+    if (!changed) return;
+    if (speedButton && fabs(speedButton.bounds.size.width - size) > FLT_EPSILON) {
+        speedButton.bounds = CGRectMake(0, 0, size, size);
+        speedButton.layer.cornerRadius = size / 2.0;
+        [speedButton loadSavedPosition];
+    }
+    updateSpeedButtonUI();
+}
 
-    void (^applyBlock)(void) = ^{
-      if (speedButton && fabs(speedButton.bounds.size.width - speedButtonSize) > FLT_EPSILON) {
-          speedButton.bounds = CGRectMake(0, 0, speedButtonSize, speedButtonSize);
-          speedButton.layer.cornerRadius = speedButtonSize / 2.0;
-          [speedButton loadSavedPosition];
-      }
-      updateSpeedButtonUI();
-      updateSpeedButtonVisibility();
-    };
-
-    if ([NSThread isMainThread]) {
-        applyBlock();
-    } else {
-        dispatch_async(dispatch_get_main_queue(), applyBlock);
++ (void)attachToWindow:(UIWindow *)window interactionController:(UIViewController *)controller {
+    if (!speedButton) {
+        CGFloat size = speedButtonSize;
+        CGRect frame = CGRectMake((window.bounds.size.width - size) / 2.0, (window.bounds.size.height - size) / 2.0, size, size);
+        speedButton = [[self alloc] initWithFrame:frame];
+        // 新控件先隐藏，是否显示由协调器决定。
+        speedButton.hidden = YES;
+        updateSpeedButtonUI();
+    }
+    if (speedButton.interactionController != controller) {
+        speedButton.interactionController = controller;
+        [speedButton resetButtonState];
+    }
+    if (speedButton.window != window) {
+        [window addSubview:speedButton];
+        [speedButton loadSavedPosition];
+        [speedButton resetFadeTimer];
     }
 }
 

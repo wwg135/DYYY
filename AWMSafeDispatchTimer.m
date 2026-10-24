@@ -114,10 +114,12 @@ static const void *kAWMSafeDispatchTimerSpecificKey = &kAWMSafeDispatchTimerSpec
 }
 
 - (void)dealloc {
+    // 异步取消会让 block 捕获正在析构的 self。能进入析构说明没有正在
+    // 持有本对象的取消/事件回调，直接释放内部资源即可。
+    [self cancelLocked];
     if (self.synchronizationQueue) {
         dispatch_queue_set_specific(self.synchronizationQueue, kAWMSafeDispatchTimerSpecificKey, NULL, NULL);
     }
-    [self cancel];
 }
 
 @end

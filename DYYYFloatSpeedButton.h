@@ -11,6 +11,7 @@
 @property(nonatomic, strong) NSTimer *fadeTimer;
 @property(nonatomic, assign) CGFloat originalAlpha;
 + (void)reloadConfiguration;
++ (void)attachToWindow:(UIWindow *)window interactionController:(UIViewController *)controller;
 - (void)saveButtonPosition;
 - (void)loadSavedPosition;
 - (void)resetButtonState;
@@ -23,10 +24,7 @@ extern "C" {
 #endif
 
 extern FloatingSpeedButton *speedButton;
-extern BOOL dyyyCommentViewVisible;
-extern BOOL dyyyInteractionViewVisible;
 extern BOOL isFloatSpeedButtonEnabled;
-extern BOOL speedButtonForceHidden;
 extern BOOL showSpeedX;
 extern CGFloat speedButtonSize;
 
@@ -35,18 +33,13 @@ extern NSString *DYYYDefaultSpeedSettingsString(void);
 extern BOOL DYYYNormalizeSpeedSettingsForRequiredSpeeds(void);
 
 extern FloatingSpeedButton *getSpeedButton(void);
-extern void showSpeedButton(void);
-extern void hideSpeedButton(void);
-extern void toggleSpeedButtonVisibility(void);
 extern NSArray *findViewControllersInHierarchy(UIViewController *rootViewController);
 extern float getCurrentSpeed(void);
 extern NSInteger getCurrentSpeedIndex(void);
 extern void setCurrentSpeedIndex(NSInteger index);
 extern BOOL setCurrentSpeedValue(float speed);
 extern void updateSpeedButtonUI(void);
-extern void updateSpeedButtonVisibility(void);
 extern id DYYYCurrentSpeedInteractionController(void);
-extern void DYYYRefreshFloatSpeedButton(void);
 
 #ifdef __cplusplus
 }

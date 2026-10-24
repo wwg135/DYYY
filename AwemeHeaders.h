@@ -31,6 +31,11 @@ typedef NS_ENUM(NSUInteger, DYEdgeMode) {
 - (void)dyyy_applyGlobalTransparency;
 @end
 
+// 抖音动态主题色
+@interface UIColor (DYYYHostThemeColors)
++ (UIColor *)awe_colorNamed:(NSString *)name;
+@end
+
 // 音量控制
 @interface AVSystemController : NSObject
 + (instancetype)sharedAVSystemController;
@@ -230,6 +235,7 @@ typedef NS_ENUM(NSUInteger, DYEdgeMode) {
 @end
 
 @interface AWEPlayVideoViewController : UIViewController
+- (CGSize)getPlayerVideoSize;
 @property(nonatomic, strong) AWEAwemeModel *model;
 - (BOOL)enableHDR;
 - (void)setEnableHDR:(BOOL)enableHDR;
@@ -500,6 +506,10 @@ typedef NS_ENUM(NSUInteger, DYEdgeMode) {
 @interface AWERLSegmentView : UIView
 @end
 
+// 评论富文本控件。
+@interface YYLabel : UIView
+@end
+
 @interface AWEBaseListViewController : UIViewController
 - (void)applyBlurEffectIfNeeded;
 - (UILabel *)findCommentLabel:(UIView *)view;
@@ -530,6 +540,11 @@ typedef NS_ENUM(NSUInteger, DYEdgeMode) {
 
 @interface AWEStoryContainerCollectionView : UIView
 @end
+
+@interface AWEPlayInteractionCommentPanelController : NSObject
+- (void)performCommentAction;
+@end
+
 
 @interface AWELiveNewPreStreamViewController : UIViewController
 @end
@@ -1359,6 +1374,9 @@ typedef NS_ENUM(NSUInteger, DYEdgeMode) {
 @interface AWENormalModeTabBarController : UIViewController
 @property(nonatomic, strong) AWENormalModeTabBar *awe_tabBar;
 - (void)handleApplicationWillEnterForeground:(NSNotification *)notification;
+// Tab 选中和当前根页面替换（用于悬浮按钮及时刷新）。
+- (void)setSelectedIndex:(NSUInteger)index;
+- (void)p_updateCurrentRootController:(UIViewController *)controller;
 @end
 
 @interface AWELeftSideBarWeatherLabel : UILabel
@@ -1953,4 +1971,8 @@ typedef NS_ENUM(NSUInteger, DYEdgeMode) {
 
 // 顶栏选中指示线
 @interface AWEFeedMultiTabSelectedContainerView : UIView
+@end
+
+// 新版评论容器的 Logos 映射名，运行时绑定 Swift 完整类名。
+@interface AWECommentPanelContainerSwiftImpl_CommentContainerInnerViewController : UIViewController
 @end

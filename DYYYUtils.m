@@ -1104,6 +1104,13 @@ static void DYYYApplyDisplayLocationToLabel(UILabel *label, NSString *displayLoc
 
 #pragma mark - Public File Management (公共文件管理)
 
++ (NSURL *)uniqueTemporaryFileURLWithFileName:(NSString *)fileName {
+    NSString *name = fileName.lastPathComponent;
+    if (name.length == 0 || [name isEqualToString:@"/"] || [name isEqualToString:@"."] || [name isEqualToString:@".."]) name = @"media";
+    NSString *uniqueName = [NSString stringWithFormat:@"DYYY_%@_%@", NSUUID.UUID.UUIDString, name];
+    return [NSURL fileURLWithPath:[NSTemporaryDirectory() stringByAppendingPathComponent:uniqueName]];
+}
+
 + (NSString *)formattedSize:(unsigned long long)size {
     NSString *dataSizeString;
     if (size < 1024) {
