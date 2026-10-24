@@ -1,8 +1,13 @@
 #import <UIKit/UIKit.h>
 
-/// 只协调播放器容器与评论面板；不修改 Metal 渲染视图。
+/// 协调推荐页全屏与创作者页分页、互动区；不修改 Metal 渲染视图。
 @interface DYYYFullscreenCoordinator : NSObject
 + (NSString *)buildIdentifier;
++ (BOOL)usesRecommendedLayoutForController:(UIViewController *)controller;
++ (BOOL)isCreatorDetailController:(UIViewController *)controller;
++ (CGFloat)bottomInsetForCreator:(CGFloat)inset controller:(UIViewController *)controller;
++ (void)reconcileCreatorPaging:(UIViewController *)controller;
++ (void)layoutCreatorInteraction:(UIViewController *)controller;
 + (BOOL)isImageContentController:(UIViewController *)controller;
 + (void)registerTabBar:(UIView *)tabBar;
 + (void)layoutInteraction:(UIViewController *)controller;

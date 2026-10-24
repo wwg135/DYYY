@@ -126,3 +126,21 @@ GITHUB_ACTIONS=true THEOS=/Users/vita/theos CLANG_MODULE_CACHE_PATH=/private/tmp
 同步后的几何、异步资源、悬浮按钮和媒体管线回归全部重新执行并通过，回环 HTTP 实测最大并发仍为 3。另外提取生产清屏快照方法与缓存恢复方法，通过临时 macOS 夹具检查普通视图、原本隐藏的视图和动态暂停图标各 3 轮恢复，验证原始 alpha/hidden 保留、捕获标记释放与重复恢复无副作用。
 
 本次 `sync.1` 包仅完成本地构建和上述回归，没有安装到 XR；上文真机记录对应各自标注的构建版本。
+
+## 2026-10-24 创作者主页全屏与分页修复
+
+推荐页保留全屏协调器，其他来源恢复原有布局分支。创作者主页（`others_homepage`）单独调整原生基础底部边距，使列表视口与真实 cell 行高共同铺满屏幕；移除仅将列表 frame 向上取整的 Hook。若 UIKit 已缓存旧行高，在页面布局/出现且停止滚动时重新询问原生行高，并按原视频索引恢复分页。正常行高直接跳过更新，另有重入保护。互动层以固定评论输入栏的位置确定底边，避免复用后重复减去底部高度。
+
+以下构建和原有全屏几何测试通过：
+
+```sh
+GITHUB_ACTIONS=true THEOS=/Users/vita/theos CLANG_MODULE_CACHE_PATH=/private/tmp/dyyy-audit-module-cache make package SCHEME=roothide PACKAGE_VERSION=2.2-9-24+sync.4
+clang -fobjc-arc -framework Foundation -framework CoreGraphics -I . DYYYFullscreenGeometry.m tests/FullscreenGeometryTests.m -o /private/tmp/dyyy-fullscreen-geometry-tests
+/private/tmp/dyyy-fullscreen-geometry-tests
+```
+
+- XR 环境：iOS 16.0、RootHide、抖音 `40.7.0 (407019)`，保留 Frida `17.5.0`。修改前实际观察到列表视口与缓存行高混用 `827/896 pt`，首条返回后文案上移 `69 pt`；只调整视口会让评论输入栏下方露出下一条视频。
+- 接入自动刷新前，使用相同的原生行高缓存更新操作进行运行时验证：7 条视频、向下 6 次再向上 6 次 UIKit 动画翻页，13 次采样均通过。真实 cell 与分页步长均为 `896 pt`，互动层为 `827 pt`，当前 cell 在窗口中从 `y=0` 开始；同一条视频复用后的文案、左右互动区位置一致，截图未再出现下一条视频提前露出。
+- 最终包 `2.2-9-24+sync.4` 已安装并重启 App；加载标识为 `fullscreen-creator-native-20261024.2`，arm64e UUID 为 `E41618B6-55E7-39F1-A577-0A6819118A29`。包 SHA-256 为 `a274926a6b751c018d03b94124ffc7f8eea92fbfa3fd88d29aafb23e7b7fdf9c`。用户随后实测确认没有问题，授权更新；上述 12 次自动翻页属于接入前的运行时验证，未在最终包上重复执行。
+
+本轮覆盖创作者视频 cell 复用与固定评论输入栏，不代表横屏、键盘展开或所有内容来源的完整回归。详细截图、行高和布局记录保存在本机 `/private/tmp/dyyy-xr-fullscreen-debug/`。

@@ -7176,6 +7176,21 @@ static void DYYYLiveDurationInstallFromInnerFeedCell(id cell) {
 
 // 主页状态栏
 %hook AWEAwemeDetailTableViewController
+- (CGFloat)baseTableViewBottomInset {
+    CGFloat inset = %orig;
+    return [DYYYFullscreenCoordinator bottomInsetForCreator:inset controller:self];
+}
+
+- (void)viewDidLayoutSubviews {
+    %orig;
+    [DYYYFullscreenCoordinator reconcileCreatorPaging:self];
+}
+
+- (void)viewDidAppear:(BOOL)animated {
+    %orig;
+    [DYYYFullscreenCoordinator reconcileCreatorPaging:self];
+}
+
 - (BOOL)prefersStatusBarHidden {
     if (DYYYGetBool(@"DYYYHideStatusbar")) {
         return YES;
@@ -11380,7 +11395,7 @@ static Class tabBarButtonClass = nil;
         }
     }
 
-    if (isPlayVC && enableFS && [DYYYFullscreenCoordinator isImageContentController:vc]) {
+    if (isPlayVC && enableFS && (![DYYYFullscreenCoordinator usesRecommendedLayoutForController:vc] || [DYYYFullscreenCoordinator isImageContentController:vc])) {
         if (frame.origin.x != 0 && frame.origin.y != 0) {
             %orig(frame);
             return;
@@ -11476,9 +11491,16 @@ static Class tabBarButtonClass = nil;
 
     [DYYYFloatingButtonCoordinator registerInteractionController:self];
 
-    [DYYYFullscreenCoordinator layoutInteraction:self];
-    if (![DYYYFullscreenCoordinator isImageContentController:self]) return;
-    if ([DYYYFullscreenCoordinator hasCommentInWindow:self.viewIfLoaded.window]) return;
+    if ([DYYYFullscreenCoordinator isCreatorDetailController:self]) {
+        [DYYYFullscreenCoordinator layoutCreatorInteraction:self];
+        return;
+    }
+
+    if ([DYYYFullscreenCoordinator usesRecommendedLayoutForController:self]) {
+        [DYYYFullscreenCoordinator layoutInteraction:self];
+        if (![DYYYFullscreenCoordinator isImageContentController:self]) return;
+        if ([DYYYFullscreenCoordinator hasCommentInWindow:self.viewIfLoaded.window]) return;
+    }
 
     UIWindow *keyWindow = [DYYYUtils getActiveWindow];
     if (keyWindow && keyWindow.safeAreaInsets.bottom == 0) {
@@ -11658,7 +11680,7 @@ static Class tabBarButtonClass = nil;
 
 - (void)viewDidLayoutSubviews {
     %orig;
-    if (DYYYGetBool(@"DYYYEnableFullScreen") && [DYYYFullscreenCoordinator isImageContentController:self]) {
+    if (DYYYGetBool(@"DYYYEnableFullScreen") && (![DYYYFullscreenCoordinator usesRecommendedLayoutForController:self] || [DYYYFullscreenCoordinator isImageContentController:self])) {
         UIView *contentView = self.contentView;
         if (contentView && contentView.superview) {
             CGRect frame = contentView.frame;
@@ -11707,7 +11729,7 @@ static Class tabBarButtonClass = nil;
 
 - (void)viewDidLayoutSubviews {
     %orig;
-    if (DYYYGetBool(@"DYYYEnableFullScreen") && [DYYYFullscreenCoordinator isImageContentController:self]) {
+    if (DYYYGetBool(@"DYYYEnableFullScreen") && (![DYYYFullscreenCoordinator usesRecommendedLayoutForController:self] || [DYYYFullscreenCoordinator isImageContentController:self])) {
         UIView *contentView = self.contentView;
         if (contentView && contentView.superview) {
             CGRect frame = contentView.frame;
@@ -12469,7 +12491,7 @@ static Class TagViewClass = nil;
         if (viewWidth + 0.5f >= screenWidth) {
             UIViewController *vc = [DYYYUtils firstAvailableViewControllerFromView:view];
             Class playClass = %c(AWEPlayVideoViewController);
-            if (playClass && [vc isKindOfClass:playClass] && [DYYYFullscreenCoordinator isImageContentController:vc]) {
+            if (playClass && [vc isKindOfClass:playClass] && (![DYYYFullscreenCoordinator usesRecommendedLayoutForController:vc] || [DYYYFullscreenCoordinator isImageContentController:vc])) {
                 AWEPlayVideoViewController *playVC = (AWEPlayVideoViewController *)vc;
                 AWEAwemeModel *model = playVC.model;
                 if ([model respondsToSelector:@selector(isShowLandscapeEntryView)] && model.isShowLandscapeEntryView) {
@@ -12500,7 +12522,7 @@ static Class TagViewClass = nil;
         if (viewWidth + 0.5f >= screenWidth) {
             UIViewController *vc = [DYYYUtils firstAvailableViewControllerFromView:view];
             Class playClass = %c(AWEPlayVideoViewController);
-            if (playClass && [vc isKindOfClass:playClass] && [DYYYFullscreenCoordinator isImageContentController:vc]) {
+            if (playClass && [vc isKindOfClass:playClass] && (![DYYYFullscreenCoordinator usesRecommendedLayoutForController:vc] || [DYYYFullscreenCoordinator isImageContentController:vc])) {
                 AWEPlayVideoViewController *playVC = (AWEPlayVideoViewController *)vc;
                 AWEAwemeModel *model = playVC.model;
                 if ([model respondsToSelector:@selector(isShowLandscapeEntryView)] && model.isShowLandscapeEntryView) {
@@ -12531,7 +12553,7 @@ static Class TagViewClass = nil;
         if (viewWidth + 0.5f >= screenWidth) {
             UIViewController *vc = [DYYYUtils firstAvailableViewControllerFromView:view];
             Class playClass = %c(AWEPlayVideoViewController);
-            if (playClass && [vc isKindOfClass:playClass] && [DYYYFullscreenCoordinator isImageContentController:vc]) {
+            if (playClass && [vc isKindOfClass:playClass] && (![DYYYFullscreenCoordinator usesRecommendedLayoutForController:vc] || [DYYYFullscreenCoordinator isImageContentController:vc])) {
                 AWEPlayVideoViewController *playVC = (AWEPlayVideoViewController *)vc;
                 AWEAwemeModel *model = playVC.model;
                 if ([model respondsToSelector:@selector(isShowLandscapeEntryView)] && model.isShowLandscapeEntryView) {
@@ -12925,22 +12947,6 @@ static NSString *const kHideRecentUsersKey = @"DYYYHideSidebarRecentUsers";
     }
 }
 %end
-%end
-
-%hook AWEAwemeDetailTableView
-
-- (void)setFrame:(CGRect)frame {
-    if (DYYYGetBool(@"DYYYEnableFullScreen")) {
-        CGFloat screenHeight = [UIScreen mainScreen].bounds.size.height;
-
-        CGFloat remainder = fmod(frame.size.height, screenHeight);
-        if (remainder != 0) {
-            frame.size.height += (screenHeight - remainder);
-        }
-    }
-    %orig(frame);
-}
-
 %end
 
 // View scaling fix when comment blur is enabled

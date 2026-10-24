@@ -1285,6 +1285,12 @@ typedef NS_ENUM(NSUInteger, DYEdgeMode) {
 @end
 @interface AWEAwemeDetailTableViewController : UIViewController
 - (BOOL)prefersStatusBarHidden;
+- (CGFloat)baseTableViewBottomInset;
+- (UIView *)activeBottomBar;
+- (UITableView *)tableView;
+- (NSUInteger)currentVisibleCellIndex;
+- (void)updateTableViewLayoutForTargetPageIndex:(NSInteger)index;
+- (CGFloat)tableView:(UITableView *)tableView heightForRowAtIndexPath:(NSIndexPath *)indexPath;
 @end
 @interface AWEAwemeHotSpotTableViewController : UIViewController
 - (BOOL)prefersStatusBarHidden;
