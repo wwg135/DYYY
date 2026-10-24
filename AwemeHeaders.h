@@ -1627,8 +1627,18 @@ typedef NS_ENUM(NSUInteger, DYEdgeMode) {
 - (void)onLinkIconContainerViewClicked:(id)arg1;
 @end
 
-@interface AWECodeGenCommonAnchorBasicInfoModel : UIViewController
-@property(copy, nonatomic) NSString *name;
+// 视频锚点模型，类型 2 为定位锚点。
+@interface AWEAnchorInfoModel : NSObject
+@property(nonatomic, assign) NSUInteger anchorType;
+@end
+
+@interface AWECodeGenCommonAnchorBasicInfoModel : NSObject
+@property(nonatomic, assign) int type;
+@property(nonatomic, copy) NSString *name;
+@end
+
+@interface AWECodeGenCommonAnchorModel : NSObject
+@property(nonatomic, strong) AWECodeGenCommonAnchorBasicInfoModel *basicInfoModel;
 @end
 
 @interface AWEFeedTemplateAnchorView : UIView

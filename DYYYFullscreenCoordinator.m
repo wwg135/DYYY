@@ -23,6 +23,22 @@
 @property(nonatomic, weak) UIWindow *normalWindow;
 @property(nonatomic, weak) UIView *normalCell;
 @property(nonatomic, assign) CGRect normalCellWindowFrame;
+@property(nonatomic, assign) CGAffineTransform nativeImageTransform;
+@property(nonatomic, assign) CGAffineTransform closedImageTransform;
+@property(nonatomic, assign) BOOL hasImageTransform;
+@property(nonatomic, assign) BOOL hasClosedImageTransform;
+@property(nonatomic, assign) BOOL imageAdjusted;
+@property(nonatomic, weak) UIImageView *imageContent;
+@property(nonatomic, weak) UIView *entryPlayer;
+@property(nonatomic, assign) CGPoint entryNativeCenter;
+@property(nonatomic, assign) CGPoint entryAppliedCenter;
+@property(nonatomic, assign) BOOL entryAdjusted;
+@property(nonatomic, assign) BOOL mediaHost;
+@property(nonatomic, assign) CGRect nativeHostFrame;
+@property(nonatomic, assign) CGRect fullscreenHostFrame;
+@property(nonatomic, strong) NSMapTable<UIView *, NSDictionary *> *bottomBackgrounds;
+@property(nonatomic, weak) UIView *transparentBottomBar;
+@property(nonatomic, assign) BOOL applyingBottomBackground;
 @end
 @implementation DYYYFullscreenPlayerState
 @end
@@ -41,19 +57,47 @@
 + (BOOL)usesRecommendedLayoutForController:(UIViewController *)controller {
     return [[self contentSourceForController:controller] isEqualToString:@"homepage_hot"];
 }
-+ (BOOL)isCreatorDetailController:(UIViewController *)controller {
-    return [[self contentSourceForController:controller] isEqualToString:@"others_homepage"];
++ (BOOL)usesDetailLayoutForController:(UIViewController *)controller {
+    Class detailClass = NSClassFromString(@"AWEAwemeDetailTableViewController");
+    Class remoteClass = NSClassFromString(@"AFDPlayRemoteFeedTableViewController");
+    BOOL detail = NO;
+    for (NSUInteger depth = 0; controller && depth < 8; depth++, controller = controller.parentViewController) {
+        if (remoteClass && [controller isKindOfClass:remoteClass]) return NO;
+        if ([controller isKindOfClass:detailClass]) detail = YES;
+    }
+    return detail;
 }
-+ (CGFloat)bottomInsetForCreator:(CGFloat)inset controller:(UIViewController *)controller {
-    if (![NSThread isMainThread] || !DYYYGetBool(@"DYYYEnableFullScreen") || ![self isCreatorDetailController:controller]) return inset;
-    CGSize size = controller.viewIfLoaded.bounds.size;
++ (BOOL)usesFullscreenLayoutForController:(UIViewController *)controller {
+    Class remoteClass = NSClassFromString(@"AFDPlayRemoteFeedTableViewController");
+    for (UIViewController *parent = controller; parent; parent = parent.parentViewController) {
+        if (remoteClass && [parent isKindOfClass:remoteClass]) return NO;
+    }
+    if ([self usesRecommendedLayoutForController:controller] || [self usesDetailLayoutForController:controller]) return YES;
+    UIView *view = controller.viewIfLoaded;
+    UIWindow *window = view.window;
+    if (!window || window.bounds.size.width >= window.bounds.size.height) return NO;
+    UIView *cell = [self cellForPlayer:view owner:controller];
+    if (![cell isKindOfClass:[UITableViewCell class]] && ![cell isKindOfClass:[UICollectionViewCell class]]) return NO;
+    for (UIView *parent = cell.superview; parent && parent != window; parent = parent.superview) {
+        if (![parent isKindOfClass:[UITableView class]] && ![parent isKindOfClass:[UICollectionView class]]) continue;
+        // 新页面按真实分页视口识别，不依赖来源字符串或业务控制器类名。
+        return parent.bounds.size.width >= window.bounds.size.width * 0.8 && parent.bounds.size.height >= window.bounds.size.height * 0.8 &&
+            cell.bounds.size.width >= parent.bounds.size.width * 0.8 && cell.bounds.size.height >= parent.bounds.size.height * 0.8;
+    }
+    return NO;
+}
++ (CGFloat)bottomInsetForDetail:(CGFloat)inset controller:(UIViewController *)controller {
+    if (![NSThread isMainThread] || !DYYYGetBool(@"DYYYEnableFullScreen") || ![self usesDetailLayoutForController:controller]) return inset;
+    UIView *view = controller.viewIfLoaded;
+    CGSize size = view.bounds.size;
+    if (view.window && (fabs(size.width - view.window.bounds.size.width) > 0.5 || fabs(size.height - view.window.bounds.size.height) > 0.5)) return inset;
     if (size.width <= 0 || size.height <= 0) size = [UIScreen mainScreen].bounds.size;
     // 基础边距是原生视口与行高的共同输入，不能只改列表 frame。
     // 不依赖输入栏是否已创建，避免首条与复用 cell 缓存不同高度。
     return size.width < size.height && inset > 0 && inset < size.height * 0.25 ? 0 : inset;
 }
-+ (void)reconcileCreatorPaging:(UIViewController *)controller {
-    if (![NSThread isMainThread] || !DYYYGetBool(@"DYYYEnableFullScreen") || ![self isCreatorDetailController:controller]) return;
++ (void)reconcileDetailPaging:(UIViewController *)controller {
+    if (![NSThread isMainThread] || !DYYYGetBool(@"DYYYEnableFullScreen") || ![self usesDetailLayoutForController:controller]) return;
     if (![controller respondsToSelector:@selector(tableView)] || ![controller respondsToSelector:@selector(currentVisibleCellIndex)] ||
         ![controller respondsToSelector:@selector(updateTableViewLayoutForTargetPageIndex:)]) return;
     AWEAwemeDetailTableViewController *detail = (AWEAwemeDetailTableViewController *)controller;
@@ -90,28 +134,85 @@
         state.applying = NO;
     }
 }
-+ (void)layoutCreatorInteraction:(UIViewController *)controller {
-    if (![NSThread isMainThread] || !DYYYGetBool(@"DYYYEnableFullScreen")) return;
-    UIView *view = controller.viewIfLoaded;
-    UIView *parent = view.superview;
-    if (!view.window || !parent || view.bounds.size.width < parent.bounds.size.width * 0.8 || view.window.bounds.size.width >= view.window.bounds.size.height) return;
-    Class detailClass = NSClassFromString(@"AWEAwemeDetailTableViewController");
-    for (UIViewController *owner = controller; owner; owner = owner.parentViewController) {
-        if (![owner isKindOfClass:detailClass] || ![owner respondsToSelector:@selector(activeBottomBar)]) continue;
-        UIView *bar = [(AWEAwemeDetailTableViewController *)owner activeBottomBar];
-        if (![bar isKindOfClass:NSClassFromString(@"AWECommentInputBackgroundView")] || bar.window != view.window || ![self visible:bar]) return;
-        CGRect barRect = [bar convertRect:bar.bounds toView:view.window];
-        if (barRect.size.height >= view.window.bounds.size.height * 0.25) return;
-        CGRect frame = view.frame;
-        // 固定输入栏使用窗口坐标；预加载 cell 的翻页平移不参与互动层高度。
-        CGFloat bottom = CGRectGetMinY(barRect) - CGRectGetMinY(view.window.bounds);
-        CGFloat height = MIN(CGRectGetMaxY(parent.bounds), bottom) - frame.origin.y;
-        if (height > 0 && fabs(frame.size.height - height) > 0.25) {
-            frame.size.height = height;
-            view.frame = frame;
++ (void)layoutBottomBar:(UIView *)bar controller:(UIViewController *)controller enabled:(BOOL)enabled {
+    DYYYFullscreenPlayerState *state = [self state:bar];
+    state.owner = controller;
+    if (!enabled) {
+        for (UIView *view in state.bottomBackgrounds.keyEnumerator.allObjects) {
+            NSDictionary *saved = [state.bottomBackgrounds objectForKey:view];
+            DYYYFullscreenPlayerState *target = [self state:view];
+            target.applyingBottomBackground = YES;
+            view.backgroundColor = saved[@"color"] == [NSNull null] ? nil : saved[@"color"];
+            view.opaque = [saved[@"opaque"] boolValue];
+            if ([view isKindOfClass:[UIVisualEffectView class]]) ((UIVisualEffectView *)view).effect = saved[@"effect"] == [NSNull null] ? nil : saved[@"effect"];
+            target.transparentBottomBar = nil;
+            target.applyingBottomBackground = NO;
         }
+        state.bottomBackgrounds = nil;
         return;
     }
+    if (!state.bottomBackgrounds) state.bottomBackgrounds = [NSMapTable weakToStrongObjectsMapTable];
+    NSMutableArray<UIView *> *queue = [NSMutableArray arrayWithObject:bar];
+    for (NSUInteger i = 0; i < queue.count && i < 32; i++) {
+        UIView *view = queue[i];
+        BOOL background = view == bar || [view isKindOfClass:[UIVisualEffectView class]] ||
+            [NSStringFromClass(view.class) containsString:@"Background"] ||
+            ([view isMemberOfClass:[UIView class]] && view.bounds.size.width >= bar.bounds.size.width * 0.8);
+        if (background) {
+            if (![state.bottomBackgrounds objectForKey:view]) {
+                UIVisualEffect *effect = [view isKindOfClass:[UIVisualEffectView class]] ? ((UIVisualEffectView *)view).effect : nil;
+                [state.bottomBackgrounds setObject:@{@"color": view.backgroundColor ?: [NSNull null], @"opaque": @(view.opaque), @"effect": effect ?: [NSNull null]} forKey:view];
+            }
+            DYYYFullscreenPlayerState *target = [self state:view];
+            target.transparentBottomBar = bar;
+            target.applyingBottomBackground = YES;
+            if (view.backgroundColor && CGColorGetAlpha(view.backgroundColor.CGColor) > 0) view.backgroundColor = UIColor.clearColor;
+            if (view.opaque) view.opaque = NO;
+            if ([view isKindOfClass:[UIVisualEffectView class]] && ((UIVisualEffectView *)view).effect) ((UIVisualEffectView *)view).effect = nil;
+            target.applyingBottomBackground = NO;
+        }
+        if (queue.count < 32 && ![view isKindOfClass:[UIControl class]]) [queue addObjectsFromArray:view.subviews];
+    }
+}
++ (UIColor *)backgroundForBottomView:(UIView *)view proposed:(UIColor *)color {
+    DYYYFullscreenPlayerState *target = objc_getAssociatedObject(view, @selector(state:));
+    UIView *bar = target.transparentBottomBar;
+    if (!bar || target.applyingBottomBackground) return color;
+    DYYYFullscreenPlayerState *state = objc_getAssociatedObject(bar, @selector(state:));
+    NSDictionary *saved = [state.bottomBackgrounds objectForKey:view];
+    if (!saved) return color;
+    NSMutableDictionary *updated = [saved mutableCopy];
+    updated[@"color"] = color ?: [NSNull null];
+    [state.bottomBackgrounds setObject:updated forKey:view];
+    return DYYYGetBool(@"DYYYEnableFullScreen") && bar.window && state.owner.viewIfLoaded.window == bar.window ? UIColor.clearColor : color;
+}
++ (BOOL)layoutNativeInteraction:(UIViewController *)controller {
+    if (![NSThread isMainThread]) return NO;
+    UIView *view = controller.viewIfLoaded;
+    UIView *parent = view.superview;
+    if (!view.window || !parent || view.bounds.size.width < parent.bounds.size.width * 0.8 || view.window.bounds.size.width >= view.window.bounds.size.height) return NO;
+    BOOL enabled = DYYYGetBool(@"DYYYEnableFullScreen");
+    BOOL legacy = [[self contentSourceForController:controller] isEqualToString:@"co_play_watch"];
+    for (UIViewController *owner = controller; owner; owner = owner.parentViewController) {
+        if (![owner respondsToSelector:@selector(activeBottomBar)]) continue;
+        UIView *bar = [(AWEAwemeDetailTableViewController *)owner activeBottomBar];
+        if (![bar isKindOfClass:[UIView class]]) continue;
+        if (!enabled) { [self layoutBottomBar:bar controller:controller enabled:NO]; continue; }
+        if (bar.window != view.window || ![self visible:bar]) continue;
+        CGRect barRect = [bar convertRect:bar.bounds toView:view.window];
+        if (barRect.size.width < view.window.bounds.size.width * 0.8 || barRect.size.height >= view.window.bounds.size.height * 0.25 ||
+            fabs(CGRectGetMaxY(barRect) - CGRectGetMaxY(view.window.bounds)) >= 1) continue;
+        [self layoutBottomBar:bar controller:controller enabled:YES];
+        if (legacy) return NO;
+        CGRect frame = view.frame;
+        CGFloat bottom = CGRectGetMinY(barRect) - CGRectGetMinY(view.window.bounds);
+        CGFloat height = MIN(CGRectGetMaxY(parent.bounds), bottom) - frame.origin.y;
+        if (height <= 0) return NO;
+        if (fabs(frame.size.height - height) > 0.25) { frame.size.height = height; view.frame = frame; }
+        return YES;
+    }
+    // 没有普通底栏时，保留原有 referString 规则；合集、一起看等例外继续有效。
+    return NO;
 }
 // Live 图文也含 TTPlayerView 和有效视频尺寸，不能用播放器存在与否区分。
 + (BOOL)isImageContentController:(UIViewController *)controller {
@@ -133,6 +234,19 @@
     dispatch_once(&once, ^{ players = [NSHashTable weakObjectsHashTable]; });
     return players;
 }
++ (NSHashTable<UIView *> *)images {
+    static NSHashTable *images;
+    static dispatch_once_t once;
+    dispatch_once(&once, ^{ images = [NSHashTable weakObjectsHashTable]; });
+    return images;
+}
+// 按钮和播放器均使用弱引用，只在原生布局或评论状态变化时同步。
++ (NSHashTable<UIView *> *)landscapeEntries {
+    static NSHashTable *entries;
+    static dispatch_once_t once;
+    dispatch_once(&once, ^{ entries = [NSHashTable weakObjectsHashTable]; });
+    return entries;
+}
 + (NSHashTable<UIView *> *)tabBars {
     static NSHashTable *views;
     static dispatch_once_t once;
@@ -153,6 +267,8 @@
         scheduled = NO;
         for (UIViewController *controller in [self interactions].allObjects) [controller.viewIfLoaded setNeedsLayout];
         for (UIView *player in [self players].allObjects) if (player.window) [player setNeedsLayout];
+        for (UIView *image in [self images].allObjects) if (image.window) [image setNeedsLayout];
+        for (UIView *entry in [self landscapeEntries].allObjects) if (entry.window) [entry setNeedsLayout];
     });
 }
 + (void)registerTabBar:(UIView *)tabBar {
@@ -266,9 +382,37 @@
     state.closedInteractionSize = view.frame.size;
     state.normalWindow = view.window;
 }
-+ (CGRect)frameForInteractionView:(UIView *)view proposed:(CGRect)frame {
-    // 只访问已注册的视频互动根视图；不为每次 UIView.setFrame 遍历 responder。
++ (BOOL)keepsMediaHostFullscreen:(UIView *)view state:(DYYYFullscreenPlayerState *)state {
+    return state.mediaHost && !state.applying && state.normalWindow == view.window &&
+        view.window.bounds.size.width < view.window.bounds.size.height &&
+        fabs(state.fullscreenHostFrame.size.width - view.window.bounds.size.width) < 1 &&
+        DYYYGetBool(@"DYYYEnableFullScreen") && [self usesFullscreenLayoutForController:state.owner] && ![self isImageContentController:state.owner];
+}
++ (CGRect)boundsForMediaHost:(UIView *)view proposed:(CGRect)bounds {
     DYYYFullscreenPlayerState *state = objc_getAssociatedObject(view, @selector(state:));
+    if (![self keepsMediaHostFullscreen:view state:state]) return bounds;
+    CGRect native = state.nativeHostFrame;
+    CGPoint center = CGPointMake(CGRectGetMidX(native), CGRectGetMidY(native));
+    native.size = bounds.size;
+    native.origin = CGPointMake(center.x - bounds.size.width * 0.5, center.y - bounds.size.height * 0.5);
+    state.nativeHostFrame = native;
+    return (CGRect){CGPointZero, state.fullscreenHostFrame.size};
+}
++ (CGPoint)centerForMediaHost:(UIView *)view proposed:(CGPoint)center {
+    DYYYFullscreenPlayerState *state = objc_getAssociatedObject(view, @selector(state:));
+    if (![self keepsMediaHostFullscreen:view state:state]) return center;
+    CGRect native = state.nativeHostFrame;
+    native.origin = CGPointMake(center.x - native.size.width * 0.5, center.y - native.size.height * 0.5);
+    state.nativeHostFrame = native;
+    return CGPointMake(CGRectGetMidX(state.fullscreenHostFrame), CGRectGetMidY(state.fullscreenHostFrame));
+}
++ (CGRect)frameForInteractionView:(UIView *)view proposed:(CGRect)frame {
+    // 只访问已注册的互动根视图和媒体承载区，不遍历普通视图的 responder。
+    DYYYFullscreenPlayerState *state = objc_getAssociatedObject(view, @selector(state:));
+    if ([self keepsMediaHostFullscreen:view state:state]) {
+        state.nativeHostFrame = frame;
+        return state.fullscreenHostFrame;
+    }
     if (state.closedInteractionSize.height > 0 && [self usesRecommendedLayoutForController:state.owner] && state.normalWindow == view.window &&
         frame.size.width >= state.closedInteractionSize.width * 0.8 &&
         DYYYGetBool(@"DYYYEnableFullScreen") && [self hasCommentInWindow:view.window]) {
@@ -338,11 +482,13 @@
     return nil;
 }
 + (UIView *)cellForPlayer:(UIView *)player owner:(UIViewController *)owner {
+    UIView *cell = nil;
+    UIWindow *window = player.window;
     for (UIView *view = player.superview; view && ![view isKindOfClass:[UIWindow class]]; view = view.superview) {
-        NSString *name = NSStringFromClass(view.class);
-        if ([name containsString:@"FeedViewCell"] || [name containsString:@"DetailTableViewCell"]) return view;
+        if (([view isKindOfClass:[UITableViewCell class]] || [view isKindOfClass:[UICollectionViewCell class]]) &&
+            view.bounds.size.width >= window.bounds.size.width * 0.8 && view.bounds.size.height >= window.bounds.size.height * 0.5) cell = view;
     }
-    return owner.parentViewController.viewIfLoaded.superview ?: owner.viewIfLoaded.superview;
+    return cell ?: owner.parentViewController.viewIfLoaded.superview ?: owner.viewIfLoaded.superview;
 }
 + (CGRect)panelInWindow:(UIWindow *)window viewport:(CGRect)viewport {
     CGRect result = CGRectNull;
@@ -370,7 +516,8 @@
     if (!DYYYGetBool(@"DYYYEnableFullScreen") || ![self visible:player]) return native;
     UIWindow *window = player.window;
     UIViewController *owner = [self owner:player state:state];
-    if (![self usesRecommendedLayoutForController:owner]) return native;
+    BOOL recommended = [self usesRecommendedLayoutForController:owner];
+    if (![self usesFullscreenLayoutForController:owner]) return native;
     if ([self isImageContentController:owner]) {
         state.hasNormalWindowFrame = NO;
         state.normalRenderSize = CGSizeZero;
@@ -378,7 +525,7 @@
     }
     BOOL activeComment = [self hasCommentInWindow:window];
     UIView *cell = [self cellForPlayer:player owner:owner];
-    if (DYYYGetBool(@"DYYYEnableCommentBlur") && activeComment && state.hasNormalWindowFrame && state.normalWindow == window &&
+    if (recommended && DYYYGetBool(@"DYYYEnableCommentBlur") && activeComment && state.hasNormalWindowFrame && state.normalWindow == window &&
         state.normalCell == cell && cell.window == window && player.superview) {
         // 预加载下一页时记录的窗口 y 不能直接用于已滚到屏幕中心的页面。
         CGRect reference = [cell convertRect:cell.bounds toView:window];
@@ -398,15 +545,26 @@
     }
     CGRect panel = DYYYGetBool(@"DYYYEnableCommentBlur") ? CGRectNull : [self panelInWindow:window viewport:viewport];
     if (!CGRectIsNull(panel)) {
-        // 标准导航区域之外保留完整视频；不在原生评论平移上再累加偏移。
-        CGFloat top = MAX(CGRectGetMinY(viewport), window.safeAreaInsets.top + 44);
-        CGRect available = [DYYYFullscreenGeometry unoccludedViewport:viewport top:top panel:panel gap:8];
+        // 用满状态栏下沿到评论区顶部的空间，等比缩放时不额外预留导航栏或间距。
+        CGFloat top = MAX(CGRectGetMinY(viewport), CGRectGetMinY(window.bounds) + window.safeAreaInsets.top);
+        CGRect available = [DYYYFullscreenGeometry unoccludedViewport:viewport top:top panel:panel gap:0];
         // 原生“铺满”可能让 Metal 按屏幕比例裁剪；按实际渲染比例适配，
         // 不能只按视频源尺寸缩小容器，否则 Metal 仍会溢出评论可用区。
         CGSize rendered = state.normalRenderSize;
         if (state.hasNormalWindowFrame && state.normalWindow == window && rendered.width > 0 && rendered.height > 0) media = rendered;
         CGRect fit = [DYYYFullscreenGeometry aspectFit:media inRect:available];
         return CGRectIsNull(fit) ? native : [player.superview convertRect:fit fromView:window];
+    }
+    if (!recommended) {
+        // 原生详情页只共用不透明评论下的避让计算，关闭态保留原有播放器布局。
+        if (!activeComment) {
+            state.normalWindowFrame = [player.superview convertRect:native toView:window];
+            state.normalCell = cell;
+            state.normalCellWindowFrame = [cell convertRect:cell.bounds toView:window];
+            state.hasNormalWindowFrame = YES;
+            state.normalWindow = window;
+        }
+        return native;
     }
     if (media.width > media.height) {
         // 横屏视频沿用原生信息层的布局高度；背景仍由全高 Feed 承载。
@@ -450,7 +608,9 @@
     DYYYFullscreenPlayerState *state = [self state:player];
     if (state.applying) return;
     [[self players] addObject:player];
-    if ([self isImageContentController:[self owner:player state:state]]) {
+    UIViewController *owner = [self owner:player state:state];
+    [self layoutPlayerContainer:owner.parentViewController];
+    if ([self isImageContentController:owner]) {
         state.hasNormalWindowFrame = NO;
         state.normalRenderSize = CGSizeZero;
         return;
@@ -472,18 +632,210 @@
     }
     return nil;
 }
-// 仅记录媒体渲染尺寸；全屏观看按钮完全沿用原生位置。
+#pragma mark - 横屏入口
+
++ (CGRect)videoRectForLandscapeEntry:(UIView *)entry state:(DYYYFullscreenPlayerState *)state {
+    if (!DYYYGetBool(@"DYYYEnableFullScreen") || ![self visible:entry]) return CGRectNull;
+    UIWindow *window = entry.window;
+    if (window.bounds.size.width >= window.bounds.size.height) return CGRectNull;
+    UIViewController *owner = [DYYYUtils firstAvailableViewControllerFromView:entry];
+    if (![self usesFullscreenLayoutForController:owner] || [self isImageContentController:owner]) return CGRectNull;
+    UIView *cell = [self cellForPlayer:entry owner:owner];
+    if (!cell || cell.window != window || cell.bounds.size.width < window.bounds.size.width * 0.8) return CGRectNull;
+    UIView *player = state.entryPlayer;
+    if (player.window != window || ![player isDescendantOfView:cell] || ![self visible:player]) {
+        player = nil;
+        for (UIView *candidate in [self players].allObjects) {
+            if (candidate.window == window && [candidate isDescendantOfView:cell] && [self visible:candidate]) {
+                player = candidate;
+                break;
+            }
+        }
+        state.entryPlayer = player;
+    }
+    UIView *render = [self renderView:player];
+    if (!render || ![self visible:render]) return CGRectNull;
+    CGRect rect = [render convertRect:render.bounds toView:window];
+    // 以实际画面为准，排除播放器留白以及祖先视图裁剪掉的部分。
+    for (UIView *view = render.superview; view; view = view.superview) {
+        if (view.clipsToBounds) rect = CGRectIntersection(rect, [view convertRect:view.bounds toView:window]);
+        if (view == cell) break;
+    }
+    rect = CGRectIntersection(rect, window.bounds);
+    if (CGRectIsNull(rect) || CGRectIsInfinite(rect) || CGRectIsEmpty(rect) || rect.size.width <= rect.size.height) return CGRectNull;
+    return rect;
+}
++ (void)layoutLandscapeEntry:(UIView *)entry {
+    if (![NSThread isMainThread] || !entry.superview) return;
+    DYYYFullscreenPlayerState *state = [self state:entry];
+    if (state.applying) return;
+    [[self landscapeEntries] addObject:entry];
+    CGPoint current = entry.center;
+    if (!state.entryAdjusted || !CGPointEqualToPoint(current, state.entryAppliedCenter)) state.entryNativeCenter = current;
+    CGRect video = [self videoRectForLandscapeEntry:entry state:state];
+    CGPoint target = state.entryNativeCenter;
+    if (!CGRectIsNull(video)) {
+        static const CGFloat gap = 12;
+        CGRect frame = [entry convertRect:entry.bounds toView:entry.window];
+        CGRect available = [entry.superview convertRect:entry.superview.bounds toView:entry.window];
+        CGFloat top = CGRectGetMaxY(video) + gap;
+        if (top + frame.size.height <= CGRectGetMaxY(available)) {
+            frame.origin.y = top;
+            CGRect local = [entry.superview convertRect:frame fromView:entry.window];
+            target = current;
+            target.y += CGRectGetMidY(local) - CGRectGetMidY(entry.frame);
+        }
+    }
+    state.entryAdjusted = !CGPointEqualToPoint(target, state.entryNativeCenter);
+    state.entryAppliedCenter = target;
+    if (fabs(current.y - target.y) > 0.25) {
+        state.applying = YES;
+        entry.center = target;
+        state.applying = NO;
+    }
+}
+
+#pragma mark - 媒体容器
+
++ (void)layoutPlayerContainer:(UIViewController *)controller {
+    if (![NSThread isMainThread] || ![controller respondsToSelector:@selector(contentView)]) return;
+    UIView *view = controller.viewIfLoaded;
+    if (!view.window || !view.superview) return;
+    BOOL enabled = DYYYGetBool(@"DYYYEnableFullScreen") && [self usesFullscreenLayoutForController:controller] && ![self isImageContentController:controller];
+    UIView *content = [(AWEDPlayerViewController_Merge *)controller contentView];
+    for (UIView *host in content && content != view ? @[view, content] : @[view]) {
+        DYYYFullscreenPlayerState *state = objc_getAssociatedObject(host, @selector(state:));
+        if (state.applying) continue;
+        CGRect current = host.frame;
+        if (!enabled) {
+            BOOL restore = state.mediaHost && CGRectEqualToRect(current, state.fullscreenHostFrame);
+            state.mediaHost = NO;
+            if (restore) host.frame = state.nativeHostFrame;
+            continue;
+        }
+        UIView *parent = host.superview;
+        if (!parent || view.window.bounds.size.width >= view.window.bounds.size.height ||
+            parent.bounds.size.width < view.window.bounds.size.width * 0.8 || !CGAffineTransformIsIdentity(host.transform)) continue;
+        if (!state.mediaHost && current.size.width < parent.bounds.size.width * 0.8) continue;
+        state = [self state:host];
+        if (!state.mediaHost || state.normalWindow != view.window) {
+            state.nativeHostFrame = current;
+            state.fullscreenHostFrame = current;
+        }
+        CGRect target = state.fullscreenHostFrame;
+        target.size.height = MAX(target.size.height, CGRectGetMaxY(parent.bounds) - target.origin.y);
+        state.mediaHost = YES;
+        state.owner = controller;
+        state.normalWindow = view.window;
+        state.fullscreenHostFrame = target;
+        // 承载区全程全高；评论避让只改内部播放器，不补背景或等待消失回调。
+        if (!CGRectEqualToRect(current, target)) {
+            state.applying = YES;
+            host.frame = target;
+            state.applying = NO;
+        }
+    }
+}
+
+// 渲染布局完成后再同步入口，避免按钮先布局时读到上一轮视频位置。
 + (void)finishPlayer:(UIView *)player {
     if (![NSThread isMainThread]) return;
     DYYYFullscreenPlayerState *state = [self state:player];
     UIViewController *owner = [self owner:player state:state];
-    if (![self usesRecommendedLayoutForController:owner] || [self isImageContentController:owner]) return;
-    if (DYYYGetBool(@"DYYYEnableFullScreen") && DYYYGetBool(@"DYYYEnableCommentBlur") && [self hasCommentInWindow:player.window]) [self preparePlayer:player];
+    [self layoutPlayerContainer:owner.parentViewController];
+    BOOL recommended = [self usesRecommendedLayoutForController:owner];
+    if (![self usesFullscreenLayoutForController:owner] || [self isImageContentController:owner]) return;
+    if (recommended && DYYYGetBool(@"DYYYEnableFullScreen") && DYYYGetBool(@"DYYYEnableCommentBlur") && [self hasCommentInWindow:player.window]) [self preparePlayer:player];
     UIView *render = [self renderView:player];
     if (DYYYGetBool(@"DYYYEnableFullScreen") && ![self hasCommentInWindow:player.window] &&
         state.hasNormalWindowFrame && render.bounds.size.width > 0 && render.bounds.size.height > 0) {
         state.normalRenderSize = render.bounds.size;
     }
+    UIView *cell = [self cellForPlayer:player owner:owner];
+    for (UIView *entry in [self landscapeEntries].allObjects) {
+        if (entry.window == player.window && [entry isDescendantOfView:cell]) [self layoutLandscapeEntry:entry];
+    }
+}
++ (CGRect)contentRectForImageView:(UIView *)view state:(DYYYFullscreenPlayerState *)state {
+    UIImageView *image = state.imageContent;
+    if (!image || ![image isDescendantOfView:view]) {
+        NSMutableArray<UIView *> *queue = [view.subviews mutableCopy];
+        for (NSUInteger i = 0; i < queue.count && i < 64; i++) {
+            UIView *candidate = queue[i];
+            if (candidate.hidden || candidate.alpha < 0.01) continue;
+            if ([candidate isKindOfClass:[UIImageView class]] && ((UIImageView *)candidate).image &&
+                candidate.bounds.size.width > 0 && candidate.bounds.size.height > 0) {
+                image = (UIImageView *)candidate;
+                state.imageContent = image;
+                break;
+            }
+            if (queue.count < 64) [queue addObjectsFromArray:candidate.subviews];
+        }
+    }
+    if (!image || !image.image) return view.bounds;
+    CGRect content = image.bounds;
+    if (image.contentMode == UIViewContentModeScaleAspectFit) content = [DYYYFullscreenGeometry aspectFit:image.image.size inRect:content];
+    return CGRectIsNull(content) ? view.bounds : [image convertRect:content toView:view];
+}
++ (CGAffineTransform)targetForImageView:(UIView *)view native:(CGAffineTransform)native state:(DYYYFullscreenPlayerState *)state {
+    if (!DYYYGetBool(@"DYYYEnableFullScreen") || DYYYGetBool(@"DYYYEnableCommentBlur") || !view.window || !view.superview) {
+        return state.imageAdjusted && state.hasClosedImageTransform ? state.closedImageTransform : native;
+    }
+    UIViewController *owner = [DYYYUtils firstAvailableViewControllerFromView:view];
+    if (![self usesFullscreenLayoutForController:owner]) return native;
+    UIWindow *window = view.window;
+    UIView *cell = [self cellForPlayer:view owner:owner];
+    if (!cell || cell.window != window || window.bounds.size.width >= window.bounds.size.height) return native;
+    CGRect viewport = CGRectIntersection([cell convertRect:cell.bounds toView:window], window.bounds);
+    CGRect panel = [self panelInWindow:window viewport:viewport];
+    if (CGRectIsNull(panel)) {
+        return ![self hasCommentInWindow:window] && state.imageAdjusted && state.hasClosedImageTransform ? state.closedImageTransform : native;
+    }
+    CGFloat top = MAX(CGRectGetMinY(viewport), CGRectGetMinY(window.bounds) + window.safeAreaInsets.top);
+    CGRect available = [DYYYFullscreenGeometry unoccludedViewport:viewport top:top panel:panel gap:0];
+    if (CGRectIsNull(available) || view.bounds.size.width <= 0 || view.bounds.size.height <= 0) return native;
+    CGRect local = [view.superview convertRect:available fromView:window];
+    return [DYYYFullscreenGeometry aspectFitTransformForBounds:view.bounds contentRect:[self contentRectForImageView:view state:state] center:view.center inRect:local];
+}
++ (CGAffineTransform)transformForImageView:(UIView *)view proposed:(CGAffineTransform)transform {
+    if (![NSThread isMainThread]) return transform;
+    DYYYFullscreenPlayerState *state = [self state:view];
+    if (state.applying) return transform;
+    [[self images] addObject:view];
+    // 保留毛玻璃模式的原有冻结行为，并恢复本协调器曾缩小的图片。
+    if (DYYYGetBool(@"DYYYEnableCommentBlur")) {
+        return state.imageAdjusted && state.hasClosedImageTransform ? state.closedImageTransform : view.transform;
+    }
+    state.nativeImageTransform = transform;
+    state.hasImageTransform = YES;
+    if (![self hasCommentInWindow:view.window]) {
+        state.closedImageTransform = transform;
+        state.hasClosedImageTransform = YES;
+    }
+    CGAffineTransform target = [self targetForImageView:view native:transform state:state];
+    state.imageAdjusted = !CGAffineTransformEqualToTransform(target, transform);
+    return target;
+}
++ (void)layoutImageView:(UIView *)view {
+    if (![NSThread isMainThread] || !view.window) return;
+    DYYYFullscreenPlayerState *state = [self state:view];
+    if (state.applying) return;
+    [[self images] addObject:view];
+    if (!state.hasImageTransform) {
+        state.nativeImageTransform = view.transform;
+        state.hasImageTransform = YES;
+        if (![self hasCommentInWindow:view.window]) {
+            state.closedImageTransform = view.transform;
+            state.hasClosedImageTransform = YES;
+        }
+    }
+    CGAffineTransform target = [self targetForImageView:view native:state.nativeImageTransform state:state];
+    if (!CGAffineTransformEqualToTransform(view.transform, target)) {
+        state.applying = YES;
+        view.transform = target;
+        state.applying = NO;
+    }
+    state.imageAdjusted = !CGAffineTransformEqualToTransform(target, state.nativeImageTransform);
 }
 + (void)commentController:(UIViewController *)controller visible:(BOOL)visible {
     if (![NSThread isMainThread]) {
@@ -516,6 +868,8 @@
     dispatch_async(dispatch_get_main_queue(), ^{
         scheduled = NO;
         for (UIView *player in [self players].allObjects) if (player.window) [player setNeedsLayout];
+        for (UIView *image in [self images].allObjects) if (image.window) [image setNeedsLayout];
+        for (UIView *entry in [self landscapeEntries].allObjects) if (entry.window) [entry setNeedsLayout];
     });
 }
 @end

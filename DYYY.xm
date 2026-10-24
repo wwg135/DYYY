@@ -39,6 +39,7 @@ static __weak UICollectionView *gFeedCV = nil;
 
 static const CGFloat kInvalidAlpha = -1.0;
 static const CGFloat kInvalidHeight = -1.0;
+static const NSUInteger kDYYYPOIAnchorType = 2;
 static CGFloat gGlobalTransparency = kInvalidAlpha;
 static CGFloat gCurrentTabBarHeight = kInvalidHeight;
 static CGFloat originalTabBarHeight = kInvalidHeight;
@@ -7178,17 +7179,17 @@ static void DYYYLiveDurationInstallFromInnerFeedCell(id cell) {
 %hook AWEAwemeDetailTableViewController
 - (CGFloat)baseTableViewBottomInset {
     CGFloat inset = %orig;
-    return [DYYYFullscreenCoordinator bottomInsetForCreator:inset controller:self];
+    return [DYYYFullscreenCoordinator bottomInsetForDetail:inset controller:self];
 }
 
 - (void)viewDidLayoutSubviews {
     %orig;
-    [DYYYFullscreenCoordinator reconcileCreatorPaging:self];
+    [DYYYFullscreenCoordinator reconcileDetailPaging:self];
 }
 
 - (void)viewDidAppear:(BOOL)animated {
     %orig;
-    [DYYYFullscreenCoordinator reconcileCreatorPaging:self];
+    [DYYYFullscreenCoordinator reconcileDetailPaging:self];
 }
 
 - (BOOL)prefersStatusBarHidden {
@@ -9054,91 +9055,30 @@ static NSHashTable *processedParentViews = nil;
 	return %orig;
 }
 
-// 屏蔽锚点信息
+// 定位锚点独立控制；保留原始模型，切换开关时不丢失数据。
 - (id)anchorInfo {
-	BOOL DYYYHideFeedAnchorContainer = DYYYGetBool(@"DYYYHideFeedAnchorContainer");
-	if (DYYYHideFeedAnchorContainer) {
-		return nil;
-	}
-	return %orig;
+    AWEAnchorInfoModel *info = %orig;
+    NSString *key = info.anchorType == kDYYYPOIAnchorType ? @"DYYYHideLocation" : @"DYYYHideFeedAnchorContainer";
+    return DYYYGetBool(key) ? nil : info;
 }
 
-- (void)setAnchorInfo:(id)info {
-	BOOL DYYYHideFeedAnchorContainer = DYYYGetBool(@"DYYYHideFeedAnchorContainer");
-	if (DYYYHideFeedAnchorContainer) {
-		%orig(nil);
-		return;
-	}
-	%orig;
-}
-
+// 本地生活与同城锚点归入定位开关，不随普通视频锚点隐藏。
 - (id)localLifeAnchorInfo {
-	BOOL DYYYHideFeedAnchorContainer = DYYYGetBool(@"DYYYHideFeedAnchorContainer");
-	if (DYYYHideFeedAnchorContainer) {
-		return nil;
-	}
-	return %orig;
-}
-
-- (void)setLocalLifeAnchorInfo:(id)info {
-	BOOL DYYYHideFeedAnchorContainer = DYYYGetBool(@"DYYYHideFeedAnchorContainer");
-	if (DYYYHideFeedAnchorContainer) {
-		%orig(nil);
-		return;
-	}
-	%orig;
+    return DYYYGetBool(@"DYYYHideLocation") ? nil : %orig;
 }
 
 - (id)nearbyFeedDualAnchorInfo {
-	BOOL DYYYHideFeedAnchorContainer = DYYYGetBool(@"DYYYHideFeedAnchorContainer");
-	if (DYYYHideFeedAnchorContainer) {
-		return nil;
-	}
-	return %orig;
-}
-
-- (void)setNearbyFeedDualAnchorInfo:(id)info {
-	BOOL DYYYHideFeedAnchorContainer = DYYYGetBool(@"DYYYHideFeedAnchorContainer");
-	if (DYYYHideFeedAnchorContainer) {
-		%orig(nil);
-		return;
-	}
-	%orig;
+    return DYYYGetBool(@"DYYYHideLocation") ? nil : %orig;
 }
 
 - (id)minorAnchorInfo {
-	BOOL DYYYHideFeedAnchorContainer = DYYYGetBool(@"DYYYHideFeedAnchorContainer");
-	if (DYYYHideFeedAnchorContainer) {
-		return nil;
-	}
-	return %orig;
+    return DYYYGetBool(@"DYYYHideFeedAnchorContainer") ? nil : %orig;
 }
 
-- (void)setMinorAnchorInfo:(id)info {
-	BOOL DYYYHideFeedAnchorContainer = DYYYGetBool(@"DYYYHideFeedAnchorContainer");
-	if (DYYYHideFeedAnchorContainer) {
-		%orig(nil);
-		return;
-	}
-	%orig;
-}
-
-// 屏蔽通用锚点（合并到锚点信息）
 - (id)commonAnchor {
-	BOOL DYYYHideFeedAnchorContainer = DYYYGetBool(@"DYYYHideFeedAnchorContainer");
-	if (DYYYHideFeedAnchorContainer) { 
-		return nil;
-	}
-	return %orig;
-}
-
-- (void)setCommonAnchor:(id)anchor {
-	BOOL DYYYHideFeedAnchorContainer = DYYYGetBool(@"DYYYHideFeedAnchorContainer");
-	if (DYYYHideFeedAnchorContainer) {
-		%orig(nil);
-		return;
-	}
-	%orig;
+    AWECodeGenCommonAnchorModel *anchor = %orig;
+    NSString *key = anchor.basicInfoModel.type == kDYYYPOIAnchorType ? @"DYYYHideLocation" : @"DYYYHideFeedAnchorContainer";
+    return DYYYGetBool(key) ? nil : anchor;
 }
 
 // 屏蔽作者声明及风险提示
@@ -11311,6 +11251,7 @@ static Class tabBarButtonClass = nil;
         return;
     }
 
+    backgroundColor = [DYYYFullscreenCoordinator backgroundForBottomView:self proposed:backgroundColor];
     if (DYYYGetBool(@"DYYYEnableFullScreen")) {
         UIViewController *vc = [DYYYUtils firstAvailableViewControllerFromView:self];
         if ([vc isKindOfClass:%c(AWEAwemeDetailTableViewController)] ||
@@ -11347,6 +11288,25 @@ static Class tabBarButtonClass = nil;
     }
 }
 
+
+// 只调整协调器注册的两个媒体承载视图，普通视图直接沿用传入值。
+- (void)setBounds:(CGRect)bounds {
+    if (![NSThread isMainThread]) {
+        __weak UIView *weakView = self;
+        dispatch_async(dispatch_get_main_queue(), ^{ weakView.bounds = bounds; });
+        return;
+    }
+    %orig([DYYYFullscreenCoordinator boundsForMediaHost:self proposed:bounds]);
+}
+
+- (void)setCenter:(CGPoint)center {
+    if (![NSThread isMainThread]) {
+        __weak UIView *weakView = self;
+        dispatch_async(dispatch_get_main_queue(), ^{ weakView.center = center; });
+        return;
+    }
+    %orig([DYYYFullscreenCoordinator centerForMediaHost:self proposed:center]);
+}
 
 - (void)setFrame:(CGRect)frame {
     if (![NSThread isMainThread]) {
@@ -11491,10 +11451,11 @@ static Class tabBarButtonClass = nil;
 
     [DYYYFloatingButtonCoordinator registerInteractionController:self];
 
-    if ([DYYYFullscreenCoordinator isCreatorDetailController:self]) {
-        [DYYYFullscreenCoordinator layoutCreatorInteraction:self];
-        return;
+    UIViewController *directParentVC = self.parentViewController;
+    for (UIViewController *parent = directParentVC; parent; parent = parent.parentViewController) {
+        if ([parent isKindOfClass:%c(AFDPlayRemoteFeedTableViewController)]) return;
     }
+    if ([DYYYFullscreenCoordinator layoutNativeInteraction:self]) return;
 
     if ([DYYYFullscreenCoordinator usesRecommendedLayoutForController:self]) {
         [DYYYFullscreenCoordinator layoutInteraction:self];
@@ -11509,19 +11470,6 @@ static Class tabBarButtonClass = nil;
 
     if (!DYYYGetBool(@"DYYYEnableFullScreen")) {
         return;
-    }
-
-    UIViewController *directParentVC = self.parentViewController;
-    UIViewController *parentVC = directParentVC;
-    int maxIterations = 3;
-    int count = 0;
-
-    while (parentVC && count < maxIterations) {
-        if ([parentVC isKindOfClass:%c(AFDPlayRemoteFeedTableViewController)]) {
-            return;
-        }
-        parentVC = parentVC.parentViewController;
-        count++;
     }
 
     if (!self.view.superview) {
@@ -11544,8 +11492,11 @@ static Class tabBarButtonClass = nil;
 
     if (!useFullHeight && [currentReferString isEqualToString:@"co_play_watch"]) {
         Class richContentVCClass = NSClassFromString(@"AWEFriendsImpl.RichContentNewListViewController");
-        if (richContentVCClass && [directParentVC isKindOfClass:richContentVCClass]) {
-            useFullHeight = YES;
+        for (UIViewController *parent = directParentVC; parent; parent = parent.parentViewController) {
+            if (richContentVCClass && [parent isKindOfClass:richContentVCClass]) {
+                useFullHeight = YES;
+                break;
+            }
         }
     }
 
@@ -11680,6 +11631,7 @@ static Class tabBarButtonClass = nil;
 
 - (void)viewDidLayoutSubviews {
     %orig;
+    [DYYYFullscreenCoordinator layoutPlayerContainer:self];
     if (DYYYGetBool(@"DYYYEnableFullScreen") && (![DYYYFullscreenCoordinator usesRecommendedLayoutForController:self] || [DYYYFullscreenCoordinator isImageContentController:self])) {
         UIView *contentView = self.contentView;
         if (contentView && contentView.superview) {
@@ -11729,6 +11681,7 @@ static Class tabBarButtonClass = nil;
 
 - (void)viewDidLayoutSubviews {
     %orig;
+    [DYYYFullscreenCoordinator layoutPlayerContainer:self];
     if (DYYYGetBool(@"DYYYEnableFullScreen") && (![DYYYFullscreenCoordinator usesRecommendedLayoutForController:self] || [DYYYFullscreenCoordinator isImageContentController:self])) {
         UIView *contentView = self.contentView;
         if (contentView && contentView.superview) {
@@ -12491,7 +12444,7 @@ static Class TagViewClass = nil;
         if (viewWidth + 0.5f >= screenWidth) {
             UIViewController *vc = [DYYYUtils firstAvailableViewControllerFromView:view];
             Class playClass = %c(AWEPlayVideoViewController);
-            if (playClass && [vc isKindOfClass:playClass] && (![DYYYFullscreenCoordinator usesRecommendedLayoutForController:vc] || [DYYYFullscreenCoordinator isImageContentController:vc])) {
+            if (playClass && [vc isKindOfClass:playClass] && [DYYYFullscreenCoordinator usesRecommendedLayoutForController:vc] && [DYYYFullscreenCoordinator isImageContentController:vc]) {
                 AWEPlayVideoViewController *playVC = (AWEPlayVideoViewController *)vc;
                 AWEAwemeModel *model = playVC.model;
                 if ([model respondsToSelector:@selector(isShowLandscapeEntryView)] && model.isShowLandscapeEntryView) {
@@ -12522,7 +12475,7 @@ static Class TagViewClass = nil;
         if (viewWidth + 0.5f >= screenWidth) {
             UIViewController *vc = [DYYYUtils firstAvailableViewControllerFromView:view];
             Class playClass = %c(AWEPlayVideoViewController);
-            if (playClass && [vc isKindOfClass:playClass] && (![DYYYFullscreenCoordinator usesRecommendedLayoutForController:vc] || [DYYYFullscreenCoordinator isImageContentController:vc])) {
+            if (playClass && [vc isKindOfClass:playClass] && [DYYYFullscreenCoordinator usesRecommendedLayoutForController:vc] && [DYYYFullscreenCoordinator isImageContentController:vc]) {
                 AWEPlayVideoViewController *playVC = (AWEPlayVideoViewController *)vc;
                 AWEAwemeModel *model = playVC.model;
                 if ([model respondsToSelector:@selector(isShowLandscapeEntryView)] && model.isShowLandscapeEntryView) {
@@ -12553,7 +12506,7 @@ static Class TagViewClass = nil;
         if (viewWidth + 0.5f >= screenWidth) {
             UIViewController *vc = [DYYYUtils firstAvailableViewControllerFromView:view];
             Class playClass = %c(AWEPlayVideoViewController);
-            if (playClass && [vc isKindOfClass:playClass] && (![DYYYFullscreenCoordinator usesRecommendedLayoutForController:vc] || [DYYYFullscreenCoordinator isImageContentController:vc])) {
+            if (playClass && [vc isKindOfClass:playClass] && [DYYYFullscreenCoordinator usesRecommendedLayoutForController:vc] && [DYYYFullscreenCoordinator isImageContentController:vc]) {
                 AWEPlayVideoViewController *playVC = (AWEPlayVideoViewController *)vc;
                 AWEAwemeModel *model = playVC.model;
                 if ([model respondsToSelector:@selector(isShowLandscapeEntryView)] && model.isShowLandscapeEntryView) {
@@ -12579,6 +12532,26 @@ static Class TagViewClass = nil;
 
 %hook AWELandscapeFeedEntryView
 
+- (void)setFrame:(CGRect)frame {
+    if (![NSThread isMainThread]) {
+        __weak UIView *weakView = self;
+        dispatch_async(dispatch_get_main_queue(), ^{ weakView.frame = frame; });
+        return;
+    }
+    %orig(frame);
+    [DYYYFullscreenCoordinator layoutLandscapeEntry:self];
+}
+
+- (void)setCenter:(CGPoint)center {
+    if (![NSThread isMainThread]) {
+        __weak UIView *weakView = self;
+        dispatch_async(dispatch_get_main_queue(), ^{ weakView.center = center; });
+        return;
+    }
+    %orig(center);
+    [DYYYFullscreenCoordinator layoutLandscapeEntry:self];
+}
+
 - (void)setAlpha:(CGFloat)alpha {
     BOOL isApplyingGlobal = (dyyyGlobalTransparencyMutationDepth > 0);
     if (!isApplyingGlobal) {
@@ -12594,6 +12567,17 @@ static Class TagViewClass = nil;
     if (fabs(self.alpha - finalAlpha) >= 0.01) {
         %orig(finalAlpha);
     }
+    if (self.alpha > 0.01) [DYYYFullscreenCoordinator layoutLandscapeEntry:self];
+}
+
+- (void)setHidden:(BOOL)hidden {
+    if (![NSThread isMainThread]) {
+        __weak UIView *weakView = self;
+        dispatch_async(dispatch_get_main_queue(), ^{ weakView.hidden = hidden; });
+        return;
+    }
+    %orig(hidden);
+    if (!hidden) [DYYYFullscreenCoordinator layoutLandscapeEntry:self];
 }
 
 - (void)didMoveToWindow {
@@ -12635,6 +12619,7 @@ static Class TagViewClass = nil;
     } else {
         self.transform = CGAffineTransformIdentity;
     }
+    [DYYYFullscreenCoordinator layoutLandscapeEntry:self];
 }
 
 %end
@@ -12954,10 +12939,12 @@ static NSString *const kHideRecentUsersKey = @"DYYYHideSidebarRecentUsers";
 %hook BDMultiContentContainer_ImageContentView
 
 - (void)setTransform:(CGAffineTransform)transform {
-    if (DYYYGetBool(@"DYYYEnableCommentBlur")) {
-        return;
-    }
-    %orig(transform);
+    %orig([DYYYFullscreenCoordinator transformForImageView:self proposed:transform]);
+}
+
+- (void)layoutSubviews {
+    %orig;
+    [DYYYFullscreenCoordinator layoutImageView:self];
 }
 
 %end

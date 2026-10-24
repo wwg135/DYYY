@@ -15,6 +15,14 @@
     CGSize size = CGSizeMake(media.width * scale, media.height * scale);
     return CGRectMake(CGRectGetMidX(viewport) - size.width / 2, CGRectGetMidY(viewport) - size.height / 2, size.width, size.height);
 }
++ (CGAffineTransform)aspectFitTransformForBounds:(CGRect)bounds contentRect:(CGRect)content center:(CGPoint)center inRect:(CGRect)viewport {
+    CGRect fit = [self aspectFit:content.size inRect:viewport];
+    if (CGRectIsNull(fit)) return CGAffineTransformIdentity;
+    CGFloat scale = fit.size.width / content.size.width;
+    return CGAffineTransformMake(scale, 0, 0, scale,
+                                 CGRectGetMidX(fit) - center.x - (CGRectGetMidX(content) - CGRectGetMidX(bounds)) * scale,
+                                 CGRectGetMidY(fit) - center.y - (CGRectGetMidY(content) - CGRectGetMidY(bounds)) * scale);
+}
 + (CGRect)unoccludedViewport:(CGRect)viewport top:(CGFloat)top panel:(CGRect)panel gap:(CGFloat)gap {
     CGFloat bottom = CGRectGetMaxY(viewport);
     top = MAX(top, CGRectGetMinY(viewport));

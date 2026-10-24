@@ -5,5 +5,6 @@
 @interface DYYYFullscreenGeometry : NSObject
 + (CGRect)translateRect:(CGRect)rect fromReference:(CGRect)previous toReference:(CGRect)current;
 + (CGRect)aspectFit:(CGSize)media inRect:(CGRect)viewport;
++ (CGAffineTransform)aspectFitTransformForBounds:(CGRect)bounds contentRect:(CGRect)content center:(CGPoint)center inRect:(CGRect)viewport;
 + (CGRect)unoccludedViewport:(CGRect)viewport top:(CGFloat)top panel:(CGRect)panel gap:(CGFloat)gap;
 @end

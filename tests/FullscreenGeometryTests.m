@@ -27,21 +27,47 @@ int main(void) {
         }
         assert(CGRectIsNull([DYYYFullscreenGeometry translateRect:viewport fromReference:CGRectNull toReference:viewport]));
         CGRect panel = CGRectMake(0, 286.72, 414, 609.28);
-        CGRect free = [DYYYFullscreenGeometry unoccludedViewport:viewport top:88 panel:panel gap:8];
+        CGRect free = [DYYYFullscreenGeometry unoccludedViewport:viewport top:44 panel:panel gap:0];
         CGRect media = [DYYYFullscreenGeometry aspectFit:CGSizeMake(1920,1080) inRect:free];
-        assert(CGRectGetMinY(media) >= 88);
-        assert(CGRectGetMaxY(media) <= 278.72 + 0.0001);
+        assert(CGRectGetMinY(media) >= 44);
+        assert(CGRectGetMaxY(media) <= 286.72 + 0.0001);
+        assert(fabs(media.size.width - 414) < 0.0001);
         assert(fabs(media.size.width / media.size.height - 16.0 / 9.0) < 0.00001);
         // 重复计算、不同父坐标系及评论拖动不累积位移。
         for (int i = 0; i < 100; i++) assert(CGRectEqualToRect(media, [DYYYFullscreenGeometry aspectFit:CGSizeMake(1920,1080) inRect:free]));
         for (double top = 180; top < 850; top += 17) {
             CGRect dragged = CGRectMake(0,top,414,896-top);
-            CGRect available = [DYYYFullscreenGeometry unoccludedViewport:viewport top:88 panel:dragged gap:8];
+            CGRect available = [DYYYFullscreenGeometry unoccludedViewport:viewport top:44 panel:dragged gap:0];
             CGRect fitted = [DYYYFullscreenGeometry aspectFit:CGSizeMake(1920,1080) inRect:available];
-            assert(CGRectGetMaxY(fitted) <= top - 8 + 0.0001);
+            assert(CGRectGetMinY(fitted) >= 44 - 0.0001);
+            assert(CGRectGetMaxY(fitted) <= top + 0.0001);
         }
         CGRect portrait = [DYYYFullscreenGeometry aspectFit:CGSizeMake(1080,1920) inRect:free];
         assert(CGRectContainsRect(free, portrait));
+        assert(fabs(CGRectGetMinY(portrait) - 44) < 0.0001);
+        assert(fabs(CGRectGetMaxY(portrait) - CGRectGetMinY(panel)) < 0.0001);
+        // 真机图文：原生缩到 307.72 pt 后被评论遮住，完整图片应等比放入 44–286.72 pt。
+        CGRect imageBounds = CGRectMake(0, 0, 414, 552);
+        CGPoint imageCenter = CGPointMake(207, 368);
+        CGAffineTransform imageTransform = [DYYYFullscreenGeometry aspectFitTransformForBounds:imageBounds contentRect:imageBounds center:imageCenter inRect:free];
+        CGRect centeredImage = CGRectMake(-207, -276, 414, 552);
+        CGRect imageFrame = CGRectOffset(CGRectApplyAffineTransform(centeredImage, imageTransform), imageCenter.x, imageCenter.y);
+        assert(fabs(CGRectGetMinY(imageFrame) - 44) < 0.0001);
+        assert(fabs(CGRectGetMaxY(imageFrame) - 286.72) < 0.0001);
+        assert(fabs(imageFrame.size.width - 182.04) < 0.0001);
+        // 全屏图文容器内含留白时，按真实图片范围缩放，包括图片不居中的情况。
+        for (NSNumber *imageTop in @[@90, @172]) {
+            CGRect container = CGRectMake(0, 0, 414, 896);
+            CGRect content = CGRectMake(0, imageTop.doubleValue, 414, 552);
+            CGPoint center = CGPointMake(207, 448);
+            CGAffineTransform transform = [DYYYFullscreenGeometry aspectFitTransformForBounds:container contentRect:content center:center inRect:free];
+            CGRect local = CGRectOffset(content, -207, -448);
+            CGRect fitted = CGRectOffset(CGRectApplyAffineTransform(local, transform), center.x, center.y);
+            assert(fabs(CGRectGetMinY(fitted) - 44) < 0.0001);
+            assert(fabs(CGRectGetMaxY(fitted) - 286.72) < 0.0001);
+            assert(fabs(fitted.size.width - 182.04) < 0.0001);
+        }
+
         // 真机铺满竖屏视频：渲染比例 414:896，和视频源的 9:16 不同。
         CGRect filledPortrait = [DYYYFullscreenGeometry aspectFit:CGSizeMake(414,896) inRect:free];
         assert(CGRectContainsRect(free, filledPortrait));

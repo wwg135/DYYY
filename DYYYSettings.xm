@@ -2099,12 +2099,13 @@ void showDYYYSettingsVC(UIViewController *rootVC, BOOL hasAgreed) {
           @{
               @"identifier" : @"DYYYHideFeedAnchorContainer",
               @"title" : @"隐藏视频锚点",
+              @"subTitle" : @"隐藏视频附加锚点，定位与同城由下方开关控制",
               @"detail" : @"",
               @"cellType" : @37,
               @"imageName" : @"ic_eyeslash_outlined_16"
           },
           @{@"identifier" : @"DYYYHideLocation",
-            @"title" : @"隐藏视频定位",
+            @"title" : @"隐藏定位与同城",
             @"detail" : @"",
             @"cellType" : @6,
             @"imageName" : @"ic_eyeslash_outlined_16"},
