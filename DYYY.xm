@@ -7520,7 +7520,8 @@ static NSHashTable *processedParentViews = nil;
     [DYYYCommentBlurCoordinator layoutTextView:self];
 
     BOOL hideRightLabel = DYYYGetBool(@"DYYYHideRightLabel");
-    if (!hideRightLabel)
+    BOOL hideChapterPoints = DYYYGetBool(@"DYYYHideChapterPoints");
+    if (!hideRightLabel && !hideChapterPoints)
         return;
 
     NSString *accessibilityLabel = self.accessibilityLabel;
@@ -7541,14 +7542,21 @@ static NSHashTable *processedParentViews = nil;
     NSString *trimmedLabel = [accessibilityLabel stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceCharacterSet]];
     BOOL shouldRemove = NO;
 
-    if ([trimmedLabel hasSuffix:@"人共创"] && trimmedLabel.length > 3) {
-        NSString *prefix = [trimmedLabel substringToIndex:trimmedLabel.length - 3];
-        NSCharacterSet *nonDigits = [[NSCharacterSet decimalDigitCharacterSet] invertedSet];
-        shouldRemove = ([prefix rangeOfCharacterFromSet:nonDigits].location == NSNotFound);
+    // 独立开关：只隐藏昵称旁边的章节要点
+    if (hideChapterPoints && [trimmedLabel isEqualToString:@"章节要点"]) {
+        shouldRemove = YES;
     }
 
-    if (!shouldRemove) {
-        shouldRemove = [trimmedLabel isEqualToString:@"章节要点"] || [trimmedLabel isEqualToString:@"图集"] || [trimmedLabel isEqualToString:@"下一章"];
+    if (!shouldRemove && hideRightLabel) {
+        if ([trimmedLabel hasSuffix:@"人共创"] && trimmedLabel.length > 3) {
+            NSString *prefix = [trimmedLabel substringToIndex:trimmedLabel.length - 3];
+            NSCharacterSet *nonDigits = [[NSCharacterSet decimalDigitCharacterSet] invertedSet];
+            shouldRemove = ([prefix rangeOfCharacterFromSet:nonDigits].location == NSNotFound);
+        }
+
+        if (!shouldRemove) {
+            shouldRemove = [trimmedLabel isEqualToString:@"章节要点"] || [trimmedLabel isEqualToString:@"图集"] || [trimmedLabel isEqualToString:@"下一章"];
+        }
     }
 
     if (shouldRemove) {
