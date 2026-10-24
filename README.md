@@ -12,9 +12,12 @@
 用于调整抖音 UI 的 Theos/Logos Tweak，仅在 **36.5.0 版本** 中测试。  
 **仅供学习交流，禁止用于商业用途。**
 
+本地 UI 修订在抖音 40.7.0 上的局部回归结果、构建命令及限制见 [布局回归记录](tests/README.md)。
+
 ## 目录
 - [功能亮点](#功能亮点)
 - [使用方式](#使用方式)
+- [我的另一个项目：Vesper](#我的另一个项目vesper)
 - [贡献者](#贡献者)
 - [远程配置](#远程配置)
 - [解析下载接口](#解析下载接口)
@@ -29,6 +32,16 @@
 ## 使用方式
 - 打开抖音后 **双指长按** 进入设置
 - 或在 **抖音设置** 中找到 DYYY 入口
+
+## 我的另一个项目：Vesper
+
+**让 AI 参与 iOS 逆向与真机调试。** [Vesper](https://github.com/Wtrwx/vesper) 是我开发的 iOS 逆向平台，通过 MCP 工具和 Agent Skill，把 UIKit 界面检查、Objective-C 运行时查询、Frida 动态分析与 SSH 构建部署接入 AI 工作流，还可选接入 IDA 做静态分析。
+
+- **看懂真机界面**：读取控件树、截图、约束和响应链，按字段查询实时对象。
+- **操作并验证**：批量执行 UIKit 点击、输入、滚动与断言，串联 Tweak 构建、安装和真机回归。
+- **串起逆向流程**：查询类与方法、追踪调用、读取日志与线程栈，并衔接砸壳、头文件生成和 IDA 分析。
+
+如果你也在开发 iOS Tweak，欢迎来试用、提 Issue，也欢迎点个 Star：[GitHub · Wtrwx/vesper](https://github.com/Wtrwx/vesper) · [中文文档](https://github.com/Wtrwx/vesper/blob/main/README.zh-CN.md)。
 
 ## 贡献者
 
