@@ -12532,26 +12532,6 @@ static Class TagViewClass = nil;
 
 %hook AWELandscapeFeedEntryView
 
-- (void)setFrame:(CGRect)frame {
-    if (![NSThread isMainThread]) {
-        __weak UIView *weakView = self;
-        dispatch_async(dispatch_get_main_queue(), ^{ weakView.frame = frame; });
-        return;
-    }
-    %orig(frame);
-    [DYYYFullscreenCoordinator layoutLandscapeEntry:self];
-}
-
-- (void)setCenter:(CGPoint)center {
-    if (![NSThread isMainThread]) {
-        __weak UIView *weakView = self;
-        dispatch_async(dispatch_get_main_queue(), ^{ weakView.center = center; });
-        return;
-    }
-    %orig(center);
-    [DYYYFullscreenCoordinator layoutLandscapeEntry:self];
-}
-
 - (void)setAlpha:(CGFloat)alpha {
     BOOL isApplyingGlobal = (dyyyGlobalTransparencyMutationDepth > 0);
     if (!isApplyingGlobal) {
@@ -12567,17 +12547,6 @@ static Class TagViewClass = nil;
     if (fabs(self.alpha - finalAlpha) >= 0.01) {
         %orig(finalAlpha);
     }
-    if (self.alpha > 0.01) [DYYYFullscreenCoordinator layoutLandscapeEntry:self];
-}
-
-- (void)setHidden:(BOOL)hidden {
-    if (![NSThread isMainThread]) {
-        __weak UIView *weakView = self;
-        dispatch_async(dispatch_get_main_queue(), ^{ weakView.hidden = hidden; });
-        return;
-    }
-    %orig(hidden);
-    if (!hidden) [DYYYFullscreenCoordinator layoutLandscapeEntry:self];
 }
 
 - (void)didMoveToWindow {
@@ -12619,7 +12588,6 @@ static Class TagViewClass = nil;
     } else {
         self.transform = CGAffineTransformIdentity;
     }
-    [DYYYFullscreenCoordinator layoutLandscapeEntry:self];
 }
 
 %end

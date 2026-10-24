@@ -29,10 +29,6 @@
 @property(nonatomic, assign) BOOL hasClosedImageTransform;
 @property(nonatomic, assign) BOOL imageAdjusted;
 @property(nonatomic, weak) UIImageView *imageContent;
-@property(nonatomic, weak) UIView *entryPlayer;
-@property(nonatomic, assign) CGPoint entryNativeCenter;
-@property(nonatomic, assign) CGPoint entryAppliedCenter;
-@property(nonatomic, assign) BOOL entryAdjusted;
 @property(nonatomic, assign) BOOL mediaHost;
 @property(nonatomic, assign) CGRect nativeHostFrame;
 @property(nonatomic, assign) CGRect fullscreenHostFrame;
@@ -240,13 +236,6 @@
     dispatch_once(&once, ^{ images = [NSHashTable weakObjectsHashTable]; });
     return images;
 }
-// 按钮和播放器均使用弱引用，只在原生布局或评论状态变化时同步。
-+ (NSHashTable<UIView *> *)landscapeEntries {
-    static NSHashTable *entries;
-    static dispatch_once_t once;
-    dispatch_once(&once, ^{ entries = [NSHashTable weakObjectsHashTable]; });
-    return entries;
-}
 + (NSHashTable<UIView *> *)tabBars {
     static NSHashTable *views;
     static dispatch_once_t once;
@@ -268,7 +257,6 @@
         for (UIViewController *controller in [self interactions].allObjects) [controller.viewIfLoaded setNeedsLayout];
         for (UIView *player in [self players].allObjects) if (player.window) [player setNeedsLayout];
         for (UIView *image in [self images].allObjects) if (image.window) [image setNeedsLayout];
-        for (UIView *entry in [self landscapeEntries].allObjects) if (entry.window) [entry setNeedsLayout];
     });
 }
 + (void)registerTabBar:(UIView *)tabBar {
@@ -632,69 +620,6 @@
     }
     return nil;
 }
-#pragma mark - 横屏入口
-
-+ (CGRect)videoRectForLandscapeEntry:(UIView *)entry state:(DYYYFullscreenPlayerState *)state {
-    if (!DYYYGetBool(@"DYYYEnableFullScreen") || ![self visible:entry]) return CGRectNull;
-    UIWindow *window = entry.window;
-    if (window.bounds.size.width >= window.bounds.size.height) return CGRectNull;
-    UIViewController *owner = [DYYYUtils firstAvailableViewControllerFromView:entry];
-    if (![self usesFullscreenLayoutForController:owner] || [self isImageContentController:owner]) return CGRectNull;
-    UIView *cell = [self cellForPlayer:entry owner:owner];
-    if (!cell || cell.window != window || cell.bounds.size.width < window.bounds.size.width * 0.8) return CGRectNull;
-    UIView *player = state.entryPlayer;
-    if (player.window != window || ![player isDescendantOfView:cell] || ![self visible:player]) {
-        player = nil;
-        for (UIView *candidate in [self players].allObjects) {
-            if (candidate.window == window && [candidate isDescendantOfView:cell] && [self visible:candidate]) {
-                player = candidate;
-                break;
-            }
-        }
-        state.entryPlayer = player;
-    }
-    UIView *render = [self renderView:player];
-    if (!render || ![self visible:render]) return CGRectNull;
-    CGRect rect = [render convertRect:render.bounds toView:window];
-    // 以实际画面为准，排除播放器留白以及祖先视图裁剪掉的部分。
-    for (UIView *view = render.superview; view; view = view.superview) {
-        if (view.clipsToBounds) rect = CGRectIntersection(rect, [view convertRect:view.bounds toView:window]);
-        if (view == cell) break;
-    }
-    rect = CGRectIntersection(rect, window.bounds);
-    if (CGRectIsNull(rect) || CGRectIsInfinite(rect) || CGRectIsEmpty(rect) || rect.size.width <= rect.size.height) return CGRectNull;
-    return rect;
-}
-+ (void)layoutLandscapeEntry:(UIView *)entry {
-    if (![NSThread isMainThread] || !entry.superview) return;
-    DYYYFullscreenPlayerState *state = [self state:entry];
-    if (state.applying) return;
-    [[self landscapeEntries] addObject:entry];
-    CGPoint current = entry.center;
-    if (!state.entryAdjusted || !CGPointEqualToPoint(current, state.entryAppliedCenter)) state.entryNativeCenter = current;
-    CGRect video = [self videoRectForLandscapeEntry:entry state:state];
-    CGPoint target = state.entryNativeCenter;
-    if (!CGRectIsNull(video)) {
-        static const CGFloat gap = 12;
-        CGRect frame = [entry convertRect:entry.bounds toView:entry.window];
-        CGRect available = [entry.superview convertRect:entry.superview.bounds toView:entry.window];
-        CGFloat top = CGRectGetMaxY(video) + gap;
-        if (top + frame.size.height <= CGRectGetMaxY(available)) {
-            frame.origin.y = top;
-            CGRect local = [entry.superview convertRect:frame fromView:entry.window];
-            target = current;
-            target.y += CGRectGetMidY(local) - CGRectGetMidY(entry.frame);
-        }
-    }
-    state.entryAdjusted = !CGPointEqualToPoint(target, state.entryNativeCenter);
-    state.entryAppliedCenter = target;
-    if (fabs(current.y - target.y) > 0.25) {
-        state.applying = YES;
-        entry.center = target;
-        state.applying = NO;
-    }
-}
-
 #pragma mark - 媒体容器
 
 + (void)layoutPlayerContainer:(UIViewController *)controller {
@@ -737,7 +662,7 @@
     }
 }
 
-// 渲染布局完成后再同步入口，避免按钮先布局时读到上一轮视频位置。
+// 渲染布局完成后记录画面尺寸，供评论避让使用。
 + (void)finishPlayer:(UIView *)player {
     if (![NSThread isMainThread]) return;
     DYYYFullscreenPlayerState *state = [self state:player];
@@ -750,10 +675,6 @@
     if (DYYYGetBool(@"DYYYEnableFullScreen") && ![self hasCommentInWindow:player.window] &&
         state.hasNormalWindowFrame && render.bounds.size.width > 0 && render.bounds.size.height > 0) {
         state.normalRenderSize = render.bounds.size;
-    }
-    UIView *cell = [self cellForPlayer:player owner:owner];
-    for (UIView *entry in [self landscapeEntries].allObjects) {
-        if (entry.window == player.window && [entry isDescendantOfView:cell]) [self layoutLandscapeEntry:entry];
     }
 }
 + (CGRect)contentRectForImageView:(UIView *)view state:(DYYYFullscreenPlayerState *)state {
@@ -869,7 +790,6 @@
         scheduled = NO;
         for (UIView *player in [self players].allObjects) if (player.window) [player setNeedsLayout];
         for (UIView *image in [self images].allObjects) if (image.window) [image setNeedsLayout];
-        for (UIView *entry in [self landscapeEntries].allObjects) if (entry.window) [entry setNeedsLayout];
     });
 }
 @end

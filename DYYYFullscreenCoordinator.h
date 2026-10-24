@@ -22,7 +22,6 @@
 + (void)preparePlayer:(UIView *)player;
 + (void)layoutPlayerContainer:(UIViewController *)controller;
 + (void)finishPlayer:(UIView *)player;
-+ (void)layoutLandscapeEntry:(UIView *)entry;
 + (CGAffineTransform)transformForImageView:(UIView *)view proposed:(CGAffineTransform)transform;
 + (void)layoutImageView:(UIView *)view;
 + (void)beginCommentInWindow:(UIWindow *)window;
