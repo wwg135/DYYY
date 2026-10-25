@@ -1425,10 +1425,11 @@ typedef NS_ENUM(NSUInteger, DYEdgeMode) {
 - (id)playVideoViewController;
 - (CGFloat)longPressFastSpeedValue;
 - (void)changeSpeed:(double)speed;
-- (void)handleLongPressLockedDoubleSpeedChanged:(id)arg1 gesture:(UIGestureRecognizer *)gesture;
+- (void)handleLongPressLockedDoubleSpeedChanged:(CGPoint)location gesture:(UIGestureRecognizer *)gesture;
 - (void)handleLongPressLockedSpeedBegan;
-- (void)handleLongPressLockedDoubleSpeedEnded:(id)arg1 gesture:(UIGestureRecognizer *)gesture;
-- (void)longPressSpeedControlDidChangeSpeed:(double)speed;
+- (void)handleLongPressLockedDoubleSpeedEnded:(CGPoint)location gesture:(UIGestureRecognizer *)gesture;
+- (void)longPressSpeedControlDidChangeSpeed:(id)speedControl;
+@property(nonatomic, assign) BOOL isLockSpeed;
 @end
 
 @interface AWEPlayInteractionDPlayerSpeedController : NSObject
@@ -1866,10 +1867,6 @@ typedef NS_ENUM(NSUInteger, DYEdgeMode) {
 
 @interface TVLSettingsManager : NSObject
 - (BOOL)enableMetalRenderHDR;
-@end
-
-@interface IESFiltersManager : NSObject
-- (void)setHDRIndensity:(double)intensity;
 @end
 
 @interface AWEFeedPauseVideoRelatedWordView : UIView

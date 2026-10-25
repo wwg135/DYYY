@@ -1,5 +1,6 @@
 #import "DYYYFloatingButtonCoordinator.h"
 #import "DYYYFloatClearButton.h"
+#import "DYYYFullscreenCoordinator.h"
 #import "DYYYFloatSpeedButton.h"
 #import <UIKit/UIKit.h>
 #import <math.h>
@@ -182,15 +183,19 @@
         // 倍速列表、默认倍速和索引也影响文案，仅配置通知时重算，普通布局不重算。
         if (configurationChanged) updateSpeedButtonUI();
         BOOL clearEnabled = [defaults boolForKey:@"DYYYEnableFloatClearButton"];
+        BOOL purificationEnabled = [defaults boolForKey:@"DYYYEnablePure"];
+        BOOL needsClearInstance = clearEnabled || purificationEnabled;
         UIViewController *current = [self currentInteractionController];
         UIWindow *window = current.viewIfLoaded.window;
         if (isFloatSpeedButtonEnabled && window) [FloatingSpeedButton attachToWindow:window interactionController:current];
         CGFloat configuredSize = [defaults floatForKey:@"DYYYEnableFloatClearButtonSize"];
         CGFloat clearSize = MIN(MAX(configuredSize > 0 ? configuredSize : 40.0, 20.0), 60.0);
-        if ((clearEnabled && window && (!hideButton || hideButton.window != window || fabs(hideButton.bounds.size.width - clearSize) > 0.01)) ||
-            (!clearEnabled && hideButton)) {
+        if (configurationChanged ||
+            (needsClearInstance && window && (!hideButton || hideButton.window != window || fabs(hideButton.bounds.size.width - clearSize) > 0.01)) ||
+            (!needsClearInstance && hideButton)) {
             reloadClearButtonConfiguration();
         }
+        hideButton.homePurificationActive = purificationEnabled && [DYYYFullscreenCoordinator usesRecommendedLayoutForController:current];
         BOOL comment = window && [coordinator hasVisibleController:coordinator.comments inWindow:window];
         BOOL pureMode = window && [coordinator hasVisibleController:coordinator.pureControllers inWindow:window];
         DYYYFloatingButtonVisibility visibility = [self visibilityWithPlayback:current != nil
@@ -202,7 +207,8 @@
                                                                 clearEnabled:clearEnabled
                                                             hideSpeedOnClear:[defaults boolForKey:@"DYYYHideSpeed"]];
         BOOL speedHidden = !(visibility & DYYYFloatingButtonVisibilitySpeed);
-        BOOL clearHidden = !(visibility & DYYYFloatingButtonVisibilityClear);
+        // 自动净化由设置开关控制；手动清屏入口在离开首页后恢复。
+        BOOL clearHidden = hideButton.homePurificationActive || !(visibility & DYYYFloatingButtonVisibilityClear);
         if (speedButton && speedButton.hidden != speedHidden) {
             speedButton.hidden = speedHidden;
             if (!speedHidden) {

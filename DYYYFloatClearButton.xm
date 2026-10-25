@@ -16,6 +16,8 @@
 #import <signal.h>
 
 @interface HideUIButton ()
+@property(nonatomic, assign) BOOL manualClearActive;
+- (void)updateClearState;
 @property(nonatomic, strong) NSHashTable<UIView *> *progressViews;
 @property(nonatomic, strong) NSMapTable<Class, NSNumber *> *classifications;
 @property(nonatomic, strong) NSSet<NSString *> *targetNames;
@@ -321,7 +323,8 @@ void reloadClearButtonConfiguration(void) {
 
     NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
     BOOL isEnabled = [defaults boolForKey:@"DYYYEnableFloatClearButton"];
-    if (!isEnabled) {
+    BOOL purificationEnabled = [defaults boolForKey:@"DYYYEnablePure"];
+    if (!isEnabled && !purificationEnabled) {
         if (hideButton) {
             if (hideButton.isElementsHidden) {
                 [hideButton safeResetState];
@@ -350,6 +353,11 @@ void reloadClearButtonConfiguration(void) {
         hideButton.layer.cornerRadius = buttonSize / 2.0;
     }
 
+    // 净化也复用同一清屏实例，按钮是否显示仍由协调器决定。
+    if (!isEnabled && hideButton.manualClearActive) {
+        hideButton.manualClearActive = NO;
+        [hideButton updateClearState];
+    }
     if (![hideButton isDescendantOfView:activeWindow]) {
         [activeWindow addSubview:hideButton];
         [hideButton loadSavedPosition];
@@ -658,41 +666,35 @@ void reloadClearButtonConfiguration(void) {
     }
 }
 
-- (void)handleTap {
-    BOOL selfHide = [self dyyy_shouldSelfHideOnClear];
-    BOOL willEnterHidden = !self.isElementsHidden;
-    // 仅在不会进入“按钮自隐藏”状态时才重置淡出动画
-    if (!(selfHide && willEnterHidden)) {
-        [self resetFadeTimer];
+// 自动净化和手动清屏分别记录意图，共用隐藏、缓存和恢复流程。
+- (void)setHomePurificationActive:(BOOL)active {
+    if (!NSThread.isMainThread) {
+        __weak HideUIButton *weakSelf = self;
+        dispatch_async(dispatch_get_main_queue(), ^{ weakSelf.homePurificationActive = active; });
+        return;
     }
+    if (_homePurificationActive == active) return;
+    _homePurificationActive = active;
+    [self updateClearState];
+}
 
-    if (!self.isElementsHidden) {
-        initTargetClassNames();
+- (void)updateClearState {
+    BOOL shouldHide = self.manualClearActive || self.homePurificationActive;
+    if (self.isElementsHidden == shouldHide) return;
+    if (shouldHide) {
         [self hideUIElements];
-        self.isElementsHidden = YES;
         self.selected = YES;
-
-        if (selfHide) {
-            [self dyyy_applySelfHiddenAlpha];
-        }
-
-        // 清屏隐藏状态栏：触发系统重新评估状态栏显隐
+        if ([self dyyy_shouldSelfHideOnClear]) [self dyyy_applySelfHiddenAlpha];
         DYYYRefreshStatusBarVisibility();
     } else {
-        self.isElementsHidden = NO;
-        forceResetAllUIElements();
-        [self restoreAWEPlayInteractionProgressContainerView];
-        [self.hiddenViewsList removeAllObjects];
-        self.selected = NO;
-
-        // 退出清屏，恢复正常透明度并重启淡出
-        self.alpha = self.originalAlpha;
-        [self resetFadeTimer];
-        [self dyyy_hideEdgeIndicator];
-
-        // 清屏隐藏状态栏：触发系统重新评估状态栏显隐
-        DYYYRefreshStatusBarVisibility();
+        [self safeResetState];
     }
+}
+
+- (void)handleTap {
+    self.manualClearActive = !self.manualClearActive;
+    if (!([self dyyy_shouldSelfHideOnClear] && self.manualClearActive)) [self resetFadeTimer];
+    [self updateClearState];
     [DYYYFloatingButtonCoordinator refresh];
 }
 
@@ -827,6 +829,8 @@ void reloadClearButtonConfiguration(void) {
 }
 
 - (void)safeResetState {
+    self.manualClearActive = NO;
+    _homePurificationActive = NO;
     self.isElementsHidden = NO;
     forceResetAllUIElements();
     [self restoreAWEPlayInteractionProgressContainerView];

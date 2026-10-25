@@ -27,6 +27,7 @@ void DYYYApplyFloatClearProgressStateToView(UIView *view);
 
 @interface HideUIButton : UIButton
 @property(nonatomic, assign) BOOL isElementsHidden;
+@property(nonatomic, assign) BOOL homePurificationActive;
 @property(nonatomic, assign) BOOL isLocked;
 @property(nonatomic, strong) NSHashTable<UIView *> *hiddenViewsList;
 - (void)registerViewForHiding:(UIView *)view;

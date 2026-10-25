@@ -655,8 +655,6 @@ static void DYYYHandleCurrentSpeedAwemeChanged(id aweme) {
     if (!parentView) {
         return;
     }
-    [parentView layoutIfNeeded];
-    [self layoutIfNeeded];
 
     NSString *scheduleStyle = [[NSUserDefaults standardUserDefaults] objectForKey:@"DYYYScheduleStyle"];
     BOOL showRightRemainingTime = [scheduleStyle isEqualToString:@"进度条右侧剩余"];
@@ -2330,14 +2328,6 @@ static void DYYYDisableAVPlayerItemHDRMetadata(AVPlayerItem *item) {
 
 %end
 
-%hook IESFiltersManager
-
-- (void)setHDRIndensity:(double)intensity {
-    %orig(DYYYShouldDisableAllHDR() ? 0.0 : intensity);
-}
-
-%end
-
 %hook BDImageDecoderFactory
 
 + (BOOL)isHDRImageData:(id)data withHeifDecoderClass:(Class)decoderClass {
@@ -3484,8 +3474,6 @@ static void DYYYDisableAVPlayerItemHDRMetadata(AVPlayerItem *item) {
     if (!parentView) {
         return;
     }
-    [parentView layoutIfNeeded];
-    [self layoutIfNeeded];
     [[parentView viewWithTag:10001] removeFromSuperview];
     [[parentView viewWithTag:10002] removeFromSuperview];
 }
@@ -3509,8 +3497,6 @@ static void DYYYDisableAVPlayerItemHDRMetadata(AVPlayerItem *item) {
     if (!parentView) {
         return;
     }
-    [parentView layoutIfNeeded];
-    [self layoutIfNeeded];
 
     NSString *scheduleStyle = [[NSUserDefaults standardUserDefaults] objectForKey:@"DYYYScheduleStyle"];
     BOOL showRightRemainingTime = [scheduleStyle isEqualToString:@"进度条右侧剩余"];
@@ -3831,6 +3817,7 @@ static void DYYYDisableAVPlayerItemHDRMetadata(AVPlayerItem *item) {
     id progressSlider = self.progressSlider;
     if (progressSlider && [progressSlider respondsToSelector:@selector(dyyy_updateScheduleLabelsWithCurrentTime:totalDuration:)]) {
         [progressSlider dyyy_updateScheduleLabelsWithCurrentTime:currentTime totalDuration:totalDuration];
+        return;
     }
 
     if ([progressSlider isKindOfClass:[UIView class]]) {
@@ -3856,6 +3843,7 @@ static void DYYYDisableAVPlayerItemHDRMetadata(AVPlayerItem *item) {
     id progressSlider = self.progressSlider;
     if (progressSlider && [progressSlider respondsToSelector:@selector(dyyy_updateScheduleLabelsWithCurrentTime:totalDuration:)]) {
         [progressSlider dyyy_updateScheduleLabelsWithCurrentTime:currentTime totalDuration:totalDuration];
+        return;
     }
 
     id model = nil;
@@ -4724,30 +4712,41 @@ static BOOL isGestureActive = NO;
     }
 }
 
+%end
+
+%group DYYYLongPressPointCallbacks
+%hook AWEPlayInteractionSpeedController
 - (void)handleLongPressLockedSpeedBegan {
     dyyyLongPressFastSpeedActive = YES;
     dyyyLongPressLockedSpeedActive = NO;
     %orig;
 }
 
-- (void)handleLongPressLockedDoubleSpeedChanged:(id)arg1 gesture:(UIGestureRecognizer *)gesture {
+- (void)handleLongPressLockedDoubleSpeedChanged:(CGPoint)location gesture:(UIGestureRecognizer *)gesture {
     dyyyLongPressFastSpeedActive = YES;
     dyyyLongPressLockedSpeedActive = NO;
-    %orig(arg1, gesture);
+    %orig(location, gesture);
 }
 
-- (void)handleLongPressLockedDoubleSpeedEnded:(id)arg1 gesture:(UIGestureRecognizer *)gesture {
-    %orig(arg1, gesture);
+- (void)handleLongPressLockedDoubleSpeedEnded:(CGPoint)location gesture:(UIGestureRecognizer *)gesture {
+    %orig(location, gesture);
     dyyyLongPressFastSpeedActive = NO;
     dyyyLongPressLockedSpeedActive = YES;
 }
 
-- (void)longPressSpeedControlDidChangeSpeed:(double)speed {
-    %orig(speed);
-    if (speed <= 1.0 && dyyyLongPressLockedSpeedActive) {
+%end
+%end
+
+%group DYYYLongPressControlCallback
+%hook AWEPlayInteractionSpeedController
+- (void)longPressSpeedControlDidChangeSpeed:(id)speedControl {
+    %orig(speedControl);
+    // 回调参数是控件对象，是否退出锁速应读取原生状态。
+    if (dyyyLongPressLockedSpeedActive && [self respondsToSelector:@selector(isLockSpeed)] && !self.isLockSpeed) {
         DYYYEndLockedLongPressSpeedAndRestoreIfNeeded();
     }
 }
+%end
 %end
 
 %hook UILabel
@@ -5258,9 +5257,18 @@ static id DYYYAvatarObjectForSelector(id object, SEL selector) {
     if (!object || !selector || ![object respondsToSelector:selector]) {
         return nil;
     }
+    NSMethodSignature *signature = [object methodSignatureForSelector:selector];
+    if (signature.numberOfArguments != 2 || signature.methodReturnType[0] != '@') {
+        return nil;
+    }
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Warc-performSelector-leaks"
-    return [object performSelector:selector];
+    @try {
+        return [object performSelector:selector];
+    } @catch (__unused NSException *exception) {
+        // 私有 getter 在旧版或初始化阶段不可用时，跳过当前附加视图。
+        return nil;
+    }
 #pragma clang diagnostic pop
 }
 
@@ -5269,6 +5277,7 @@ static UIView *DYYYAvatarViewForSelector(id object, SEL selector) {
     return [value isKindOfClass:[UIView class]] ? value : nil;
 }
 
+static char kDYYYAvatarFollowApplyingKey;
 static char kDYYYAvatarFollowDeferredApplyKey;
 static char kDYYYAvatarFollowScopeViewKey;
 static char kDYYYAvatarActionHiddenViewKey;
@@ -5348,7 +5357,7 @@ static void DYYYMarkAvatarActionViewHidden(UIView *view) {
     }
 
     objc_setAssociatedObject(view, &kDYYYAvatarActionHiddenViewKey, @YES, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
-    view.hidden = YES;
+    if (!view.hidden) view.hidden = YES;
 }
 
 static BOOL DYYYShouldForceAvatarActionViewHidden(UIView *view) {
@@ -5381,8 +5390,8 @@ static void DYYYMarkAvatarSurroundingViewHidden(UIView *view) {
     }
 
     objc_setAssociatedObject(view, &kDYYYAvatarSurroundingHiddenViewKey, @YES, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
-    view.hidden = YES;
-    view.userInteractionEnabled = NO;
+    if (!view.hidden) view.hidden = YES;
+    if (view.userInteractionEnabled) view.userInteractionEnabled = NO;
 }
 
 static BOOL DYYYShouldForceAvatarSurroundingViewHidden(UIView *view) {
@@ -5420,8 +5429,8 @@ static void DYYYRemoveAvatarView(UIView *view) {
         return;
     }
     objc_setAssociatedObject(view, &kDYYYAvatarActionRemovedViewKey, @YES, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
-    view.hidden = YES;
-    view.userInteractionEnabled = NO;
+    if (!view.hidden) view.hidden = YES;
+    if (view.userInteractionEnabled) view.userInteractionEnabled = NO;
 }
 
 static void DYYYRemoveAvatarViewForSelector(id object, SEL selector) {
@@ -5678,69 +5687,81 @@ static void DYYYApplyAvatarFollowSettingsForContext(id context) {
 static void DYYYApplyAvatarFollowPromptSettings(id owner) {
     BOOL hidePlus = DYYYGetBool(@"DYYYHideLOTAnimationView");
     BOOL removePlus = DYYYGetBool(@"DYYYHideFollowPromptView");
-    if (!hidePlus && !removePlus) {
+    if (!owner || (!hidePlus && !removePlus) || objc_getAssociatedObject(owner, &kDYYYAvatarFollowApplyingKey)) {
         return;
     }
 
-    for (NSString *selectorName in @[ @"followAnimationView", @"unfollowAnimationView", @"staticFollowAnimationView" ]) {
-        UIView *animationView = DYYYAvatarViewForSelector(owner, NSSelectorFromString(selectorName));
-        if (!animationView) {
-            continue;
-        }
-        if (removePlus) {
-            DYYYRemoveAvatarView(DYYYAvatarFollowRemovalTargetForView(animationView, nil));
-        } else {
-            DYYYHideAvatarFollowIconInView(animationView);
-        }
-    }
-
-    UIView *followAddView = DYYYAvatarViewForSelector(owner, NSSelectorFromString(@"followAddView"));
-    if (removePlus) {
-        DYYYRemoveAvatarView(followAddView);
-    } else {
-        BOOL foundIcon = DYYYHideAvatarFollowIconInView(followAddView);
-        if (hidePlus && followAddView) {
-            DYYYClearAvatarActionViewChrome(followAddView);
-            if (!foundIcon) {
-                DYYYHideAvatarFollowLayerContents(followAddView);
+    // 必须先建立屏障：旧版头像 getter 会同步触发配置回调，再进入本方法。
+    objc_setAssociatedObject(owner, &kDYYYAvatarFollowApplyingKey, @YES, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+    @try {
+        for (NSString *selectorName in @[ @"followAnimationView", @"unfollowAnimationView", @"staticFollowAnimationView" ]) {
+            UIView *animationView = DYYYAvatarViewForSelector(owner, NSSelectorFromString(selectorName));
+            if (!animationView) {
+                continue;
+            }
+            if (removePlus) {
+                DYYYRemoveAvatarView(DYYYAvatarFollowRemovalTargetForView(animationView, nil));
+            } else {
+                DYYYHideAvatarFollowIconInView(animationView);
             }
         }
-    }
 
-    UIView *followPromptView = DYYYAvatarViewForSelector(owner, NSSelectorFromString(@"followPromptView"));
-    if (removePlus) {
-        DYYYRemoveAvatarView(followPromptView);
-    } else {
-        DYYYApplyAvatarFollowSettingsInView(followPromptView, followPromptView);
-    }
+        UIView *followAddView = DYYYAvatarViewForSelector(owner, NSSelectorFromString(@"followAddView"));
+        if (removePlus) {
+            DYYYRemoveAvatarView(followAddView);
+        } else {
+            BOOL foundIcon = DYYYHideAvatarFollowIconInView(followAddView);
+            if (hidePlus && followAddView) {
+                DYYYClearAvatarActionViewChrome(followAddView);
+                if (!foundIcon) {
+                    DYYYHideAvatarFollowLayerContents(followAddView);
+                }
+            }
+        }
 
-    DYYYApplyAvatarAuxiliaryActionSettingsForOwner(owner);
+        UIView *followPromptView = DYYYAvatarViewForSelector(owner, NSSelectorFromString(@"followPromptView"));
+        if (removePlus) {
+            DYYYRemoveAvatarView(followPromptView);
+        } else {
+            DYYYApplyAvatarFollowSettingsInView(followPromptView, followPromptView);
+        }
 
-    if ([owner isKindOfClass:[UIView class]]) {
-        DYYYApplyAvatarFollowSettingsInView((UIView *)owner, (UIView *)owner);
-    } else if ([owner isKindOfClass:[UIViewController class]]) {
-        DYYYApplyAvatarFollowSettingsInView(((UIViewController *)owner).view, ((UIViewController *)owner).view);
+        DYYYApplyAvatarAuxiliaryActionSettingsForOwner(owner);
+
+        if ([owner isKindOfClass:[UIView class]]) {
+            DYYYApplyAvatarFollowSettingsInView((UIView *)owner, (UIView *)owner);
+        } else if ([owner isKindOfClass:[UIViewController class]]) {
+            DYYYApplyAvatarFollowSettingsInView(((UIViewController *)owner).viewIfLoaded, ((UIViewController *)owner).viewIfLoaded);
+        }
+        DYYYApplyAvatarFollowSettingsForContext(DYYYAvatarObjectForSelector(owner, NSSelectorFromString(@"userAvatarContext")));
+    } @finally {
+        objc_setAssociatedObject(owner, &kDYYYAvatarFollowApplyingKey, nil, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
     }
-    UIView *userAvatarView = DYYYAvatarViewForSelector(owner, NSSelectorFromString(@"userAvatarView"));
-    if (userAvatarView) {
-        DYYYApplyAvatarFollowSettingsInView(userAvatarView, userAvatarView);
-    }
-    DYYYApplyAvatarFollowSettingsForContext(DYYYAvatarObjectForSelector(owner, NSSelectorFromString(@"userAvatarContext")));
 }
 
 static void DYYYApplyAvatarFollowPromptSettingsWithRetry(id owner) {
-    DYYYApplyAvatarFollowPromptSettings(owner);
-    if (!owner || !DYYYAvatarFollowOptionsEnabled() || objc_getAssociatedObject(owner, &kDYYYAvatarFollowDeferredApplyKey)) {
+    if (!owner || !DYYYAvatarFollowOptionsEnabled()) return;
+    if (!NSThread.isMainThread) {
+        __weak id weakOwner = owner;
+        dispatch_async(dispatch_get_main_queue(), ^{ DYYYApplyAvatarFollowPromptSettingsWithRetry(weakOwner); });
         return;
     }
+    // 重入回调连延迟任务也不能再登记，避免原生 getter 反复初始化头像。
+    if (objc_getAssociatedObject(owner, &kDYYYAvatarFollowApplyingKey)) return;
+    DYYYApplyAvatarFollowPromptSettings(owner);
+    if (objc_getAssociatedObject(owner, &kDYYYAvatarFollowDeferredApplyKey)) return;
 
     objc_setAssociatedObject(owner, &kDYYYAvatarFollowDeferredApplyKey, @YES, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
-    id target = owner;
+    __weak id weakOwner = owner;
     dispatch_async(dispatch_get_main_queue(), ^{
+        id target = weakOwner;
+        if (!target) return;
         DYYYApplyAvatarFollowPromptSettings(target);
         dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.2 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
-            DYYYApplyAvatarFollowPromptSettings(target);
-            objc_setAssociatedObject(target, &kDYYYAvatarFollowDeferredApplyKey, nil, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+            id currentOwner = weakOwner;
+            if (!currentOwner) return;
+            DYYYApplyAvatarFollowPromptSettings(currentOwner);
+            objc_setAssociatedObject(currentOwner, &kDYYYAvatarFollowDeferredApplyKey, nil, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
         });
     });
 }
@@ -11057,33 +11078,13 @@ static Class tabBarButtonClass = nil;
 
 %end
 
-// 开启评论区毛玻璃后滚动区域填满底部
+// 毛玻璃只处理实际评论面板的材质，列表尺寸和边距由原生布局维护。
 %hook AWEListKitMagicCollectionView
 
 - (void)layoutSubviews {
     %orig;
     [DYYYCommentBlurCoordinator layoutListView:self];
 
-    if (!DYYYGetBool(@"DYYYEnableCommentBlur")) {
-        return;
-    }
-
-    UICollectionView *collectionView = (UICollectionView *)self;
-
-    UIView *superview = collectionView.superview;
-    CGRect targetFrame = superview.bounds;
-    if (superview == nil || CGSizeEqualToSize(targetFrame.size, CGSizeZero) || CGRectEqualToRect(collectionView.frame, targetFrame)) {
-        return;
-    }
-
-    collectionView.frame = targetFrame;
-
-    CGFloat commentOffset = 166.0;
-
-    UIEdgeInsets inset = collectionView.contentInset;
-    inset.bottom = commentOffset;
-    collectionView.contentInset = inset;
-    collectionView.scrollIndicatorInsets = inset;
 }
 
 %end
@@ -11246,8 +11247,9 @@ static Class tabBarButtonClass = nil;
 - (void)dyyy_applyGlobalTransparency {
     if ([NSThread isMainThread]) {
         if (self.window && self.tag != DYYY_IGNORE_GLOBAL_ALPHA_TAG) {
+            NSNumber *clearAlpha = hideButton.isElementsHidden ? objc_getAssociatedObject(self, &dyyyClearOriginalAlphaKey) : nil;
             NSNumber *stored = objc_getAssociatedObject(self, &kDYYYGlobalTransparencyBaseAlphaKey);
-            CGFloat baseAlpha = stored ? stored.floatValue : self.alpha;
+            CGFloat baseAlpha = stored ? stored.floatValue : (clearAlpha ? clearAlpha.floatValue : self.alpha);
             if (!stored) {
                 objc_setAssociatedObject(self, &kDYYYGlobalTransparencyBaseAlphaKey, @(baseAlpha), OBJC_ASSOCIATION_RETAIN_NONATOMIC);
             }
@@ -11255,6 +11257,11 @@ static Class tabBarButtonClass = nil;
             if (gGlobalTransparency != kInvalidAlpha) {
                 CGFloat clampedAlpha = MIN(MAX(baseAlpha, 0.0), 1.0);
                 finalAlpha = clampedAlpha * gGlobalTransparency;
+            }
+            // 清屏中只更新恢复值，预加载视图也保留正确的全局透明度。
+            if (clearAlpha) {
+                objc_setAssociatedObject(self, &dyyyClearOriginalAlphaKey, @(finalAlpha), OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+                return;
             }
             if (fabs(self.alpha - finalAlpha) >= 0.01) {
                 [UIView animateWithDuration:0.2
@@ -11787,63 +11794,10 @@ static Class TagViewClass = nil;
 %hook AWEElementStackView
 
 - (void)setAlpha:(CGFloat)alpha {
-    BOOL isApplyingGlobal = (dyyyGlobalTransparencyMutationDepth > 0);
+    BOOL isApplyingGlobal = (dyyyGlobalTransparencyMutationDepth > 0 || dyyyIsPerformingFloatClearOperation);
     if (!isApplyingGlobal) {
         objc_setAssociatedObject(self, &kDYYYGlobalTransparencyBaseAlphaKey, @(alpha), OBJC_ASSOCIATION_RETAIN_NONATOMIC);
     }
-
-    // 纯净模式功能
-    static AWMSafeDispatchTimer *pureModeTimer = nil;
-    static int attempts = 0;
-    static BOOL pureModeSet = NO;
-    if (DYYYGetBool(@"DYYYEnablePure")) {
-        %orig(0.0);
-        if (pureModeSet) {
-            return;
-        }
-        if (!pureModeTimer) {
-            pureModeTimer = [[AWMSafeDispatchTimer alloc] init];
-        }
-        if (!pureModeTimer.isRunning) {
-            attempts = 0;
-            __weak AWMSafeDispatchTimer *weakTimer = pureModeTimer;
-            [pureModeTimer startWithInterval:0.5
-                                      leeway:0.1
-                                       queue:dispatch_get_main_queue()
-                                     repeats:YES
-                                     handler:^{
-                                       AWMSafeDispatchTimer *strongTimer = weakTimer;
-                                       UIWindow *keyWindow = [DYYYUtils getActiveWindow];
-                                       if (keyWindow && keyWindow.rootViewController) {
-                                           UIViewController *feedVC = [DYYYUtils findViewControllerOfClass:NSClassFromString(@"AWEFeedTableViewController")
-                                                                                          inViewController:keyWindow.rootViewController];
-                                           if (feedVC) {
-                                               [feedVC setValue:@YES forKey:@"pureMode"];
-                                               pureModeSet = YES;
-                                               [strongTimer cancel];
-                                               pureModeTimer = nil;
-                                               attempts = 0;
-                                               return;
-                                           }
-                                       }
-                                       attempts++;
-                                       if (attempts >= 10) {
-                                           [strongTimer cancel];
-                                           pureModeTimer = nil;
-                                           attempts = 0;
-                                       }
-                                     }];
-        }
-        return;
-    }
-
-    // 清理纯净模式的残留状态
-    if (pureModeTimer) {
-        [pureModeTimer cancel];
-        pureModeTimer = nil;
-    }
-    attempts = 0;
-    pureModeSet = NO;
 
     // 值守全局透明度
     CGFloat finalAlpha = alpha;
@@ -12052,7 +12006,7 @@ static Class TagViewClass = nil;
 }
 
 - (void)setAlpha:(CGFloat)alpha {
-    BOOL isApplyingGlobal = (dyyyGlobalTransparencyMutationDepth > 0);
+    BOOL isApplyingGlobal = (dyyyGlobalTransparencyMutationDepth > 0 || dyyyIsPerformingFloatClearOperation);
     if (!isApplyingGlobal) {
         objc_setAssociatedObject(self, &kDYYYGlobalTransparencyBaseAlphaKey, @(alpha), OBJC_ASSOCIATION_RETAIN_NONATOMIC);
     }
@@ -12369,7 +12323,7 @@ static Class TagViewClass = nil;
 %hook AWELandscapeFeedEntryView
 
 - (void)setAlpha:(CGFloat)alpha {
-    BOOL isApplyingGlobal = (dyyyGlobalTransparencyMutationDepth > 0);
+    BOOL isApplyingGlobal = (dyyyGlobalTransparencyMutationDepth > 0 || dyyyIsPerformingFloatClearOperation);
     if (!isApplyingGlobal) {
         objc_setAssociatedObject(self, &kDYYYGlobalTransparencyBaseAlphaKey, @(alpha), OBJC_ASSOCIATION_RETAIN_NONATOMIC);
     }
@@ -12891,6 +12845,24 @@ static void findTargetViewInView(UIView *view) {
             %init(EnableStickerSaveMenu);
         }
         [DYYYFloatingButtonCoordinator reloadConfiguration];
+
+        // 各版本原生回调参数有差异，签名匹配时才接管锁速状态。
+        Class speedClass = NSClassFromString(@"AWEPlayInteractionSpeedController");
+        NSMethodSignature *changed = [speedClass instanceMethodSignatureForSelector:@selector(handleLongPressLockedDoubleSpeedChanged:gesture:)];
+        NSMethodSignature *ended = [speedClass instanceMethodSignatureForSelector:@selector(handleLongPressLockedDoubleSpeedEnded:gesture:)];
+        if (changed.numberOfArguments == 4 && ended.numberOfArguments == 4 &&
+            strcmp(changed.methodReturnType, @encode(void)) == 0 && strcmp(ended.methodReturnType, @encode(void)) == 0 &&
+            strcmp([changed getArgumentTypeAtIndex:2], @encode(CGPoint)) == 0 && strcmp([ended getArgumentTypeAtIndex:2], @encode(CGPoint)) == 0 &&
+            [changed getArgumentTypeAtIndex:3][0] == '@' && [ended getArgumentTypeAtIndex:3][0] == '@') {
+            %init(DYYYLongPressPointCallbacks);
+        }
+        NSMethodSignature *control = [speedClass instanceMethodSignatureForSelector:@selector(longPressSpeedControlDidChangeSpeed:)];
+        NSMethodSignature *locked = [speedClass instanceMethodSignatureForSelector:@selector(isLockSpeed)];
+        if (control.numberOfArguments == 3 && strcmp(control.methodReturnType, @encode(void)) == 0 &&
+            [control getArgumentTypeAtIndex:2][0] == '@' && locked.numberOfArguments == 2 &&
+            (locked.methodReturnType[0] == 'B' || locked.methodReturnType[0] == 'c')) {
+            %init(DYYYLongPressControlCallback);
+        }
 
         // 初始化红包激励挂件容器视图类组
         Class incentivePendantClass = objc_getClass("AWEIncentiveSwiftImplDOUYINLite.IncentivePendantContainerView");
