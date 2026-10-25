@@ -1318,6 +1318,9 @@ typedef NS_ENUM(NSUInteger, DYEdgeMode) {
 @end
 @interface AFDPureModePageContainerViewController : UIViewController
 - (BOOL)prefersStatusBarHidden;
+- (CGRect)getPureModeContainerFrame;
+@end
+@interface AFDPureModePageListViewController : UIViewController
 @end
 
 @interface AWEFeedUnfollowFamiliarFollowAndDislikeView : UIView

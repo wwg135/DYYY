@@ -6,12 +6,14 @@
 + (BOOL)usesRecommendedLayoutForController:(UIViewController *)controller;
 + (BOOL)usesDetailLayoutForController:(UIViewController *)controller;
 + (BOOL)usesFullscreenLayoutForController:(UIViewController *)controller;
++ (CGRect)frameForPureModeContainer:(UIViewController *)controller proposed:(CGRect)frame;
 + (CGFloat)bottomInsetForDetail:(CGFloat)inset controller:(UIViewController *)controller;
 + (void)reconcileDetailPaging:(UIViewController *)controller;
 + (CGFloat)heightForDetailRow:(CGFloat)height table:(UITableView *)table controller:(UIViewController *)controller;
 + (BOOL)layoutNativeInteraction:(UIViewController *)controller;
 + (BOOL)isImageContentController:(UIViewController *)controller;
 + (void)registerTabBar:(UIView *)tabBar;
++ (void)invalidateGuides;
 + (CGFloat)bottomOccupiedHeightForView:(UIView *)view;
 + (void)layoutBottomInput:(UIView *)view controller:(UIViewController *)controller;
 + (void)layoutInteraction:(UIViewController *)controller;

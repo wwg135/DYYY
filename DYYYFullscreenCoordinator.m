@@ -80,10 +80,12 @@
 }
 + (BOOL)usesFullscreenLayoutForController:(UIViewController *)controller {
     Class remoteClass = NSClassFromString(@"AFDPlayRemoteFeedTableViewController");
+    BOOL pureMode = NO;
     for (UIViewController *parent = controller; parent; parent = parent.parentViewController) {
         if (remoteClass && [parent isKindOfClass:remoteClass]) return NO;
+        if ([parent respondsToSelector:@selector(getPureModeContainerFrame)]) pureMode = YES;
     }
-    if ([self usesRecommendedLayoutForController:controller] || [self usesDetailLayoutForController:controller]) return YES;
+    if (pureMode || [self usesRecommendedLayoutForController:controller] || [self usesDetailLayoutForController:controller]) return YES;
     UIView *view = controller.viewIfLoaded;
     if (!view.window) return NO;
     UIView *cell = [self cellForPlayer:view owner:controller];
@@ -96,6 +98,16 @@
         if ([parent respondsToSelector:@selector(currentVisibleCellIndex)]) return YES;
     }
     return NO;
+}
++ (CGRect)frameForPureModeContainer:(UIViewController *)controller proposed:(CGRect)frame {
+    if (![NSThread isMainThread] || !DYYYGetBool(@"DYYYEnableFullScreen")) return frame;
+    UIView *view = controller.viewIfLoaded;
+    if (!view) return frame;
+    if (CGRectIsEmpty(frame) || CGRectIsNull(frame) || CGRectIsInfinite(frame) || fabs(frame.size.width - view.bounds.size.width) > 1) return frame;
+    CGFloat height = CGRectGetMaxY(view.bounds) - frame.origin.y;
+    // 交给原生列表同步计算行高和分页，媒体可延伸到底部清屏控制栏下方。
+    if (height > 0) frame.size.height = height;
+    return frame;
 }
 + (CGFloat)bottomInsetForDetail:(CGFloat)inset controller:(UIViewController *)controller {
     if (![NSThread isMainThread] || !DYYYGetBool(@"DYYYEnableFullScreen") || ![self usesDetailLayoutForController:controller]) return inset;
@@ -233,6 +245,23 @@
     for (UIView *bar in [self tabBars].allObjects) if (bar.window == window && bar.bounds.size.height > 0) return bar.bounds.size.height;
     return 0;
 }
++ (CGRect)rect:(CGRect)rect followingView:(UIView *)view controller:(UIViewController *)controller anchor:(UIView *)anchor {
+    UIWindow *window = view.window;
+    UIView *cell = [self cellForPlayer:view owner:controller];
+    UIScrollView *pager = [self pagingViewForCell:cell];
+    if (window && pager.window == window && [self view:cell spansWidthOf:pager] && ![anchor isDescendantOfView:cell]) {
+        // 固定底栏先跟随各自的分页 cell，再换算到文案容器；预加载、复用和
+        // 翻页都使用同一个视口基准，不能让屏幕坐标改变每页的文案区域高度。
+        CGRect cellRect = [cell convertRect:cell.bounds toView:window];
+        CGRect viewport = [pager convertRect:pager.bounds toView:window];
+        rect.origin.y += CGRectGetMinY(cellRect) - CGRectGetMinY(viewport);
+    }
+    return rect;
+}
++ (CGRect)bottomBarRect:(UIView *)bar followingView:(UIView *)view controller:(UIViewController *)controller {
+    if (!view.window || bar.window != view.window) return CGRectNull;
+    return [self rect:[bar convertRect:bar.bounds toView:view.window] followingView:view controller:controller anchor:bar];
+}
 + (BOOL)layoutNativeInteraction:(UIViewController *)controller {
     if (![NSThread isMainThread]) return NO;
     UIView *view = controller.viewIfLoaded;
@@ -255,7 +284,8 @@
         [self layoutBottomBar:bar controller:controller enabled:YES];
         if (legacy) return NO;
         CGRect frame = view.frame;
-        CGFloat bottom = CGRectGetMinY([bar convertRect:bar.bounds toView:parent]);
+        barRect = [self bottomBarRect:bar followingView:view controller:controller];
+        CGFloat bottom = CGRectGetMinY([parent convertRect:barRect fromView:view.window]);
         CGFloat height = MIN(CGRectGetMaxY(parent.bounds), bottom) - frame.origin.y;
         if (height <= 0) return NO;
         if (fabs(frame.size.height - height) > 0.25) { frame.size.height = height; view.frame = frame; }
@@ -356,18 +386,16 @@
     if (DYYYGetBool(@"DYYYEnableFullScreen")) {
         target.size.height = MAX(0, CGRectGetMaxY(parent.bounds) - target.origin.y);
         CGRect guide = [parent convertRect:target toView:view.window];
-        // Feed 的前后两页在滚动中有不同的窗口 y；先移除页平移，
-        // 否则 Tab 裁剪会随翻页持续改变互动层高度，反过来干扰滚动布局。
-        CGFloat pageTranslation = CGRectGetMinY([parent convertRect:parent.bounds toView:view.window]) - CGRectGetMinY(view.window.bounds);
-        guide.origin.y -= pageTranslation;
         for (UIView *tabBar in [self tabBars].allObjects) {
-            if (tabBar.window != view.window || ![self visible:tabBar]) continue;
-            CGRect tabRect = [tabBar convertRect:tabBar.bounds toView:view.window];
+            // 清屏只隐藏底栏，不释放其占位；信息区沿用同一边界，退出时无需
+            // 等待底栏的显隐动画恢复，也不会把文案按全屏高度重新锚到底部。
+            if (tabBar.window != view.window || CGRectIsEmpty(tabBar.bounds)) continue;
+            CGRect tabRect = [self bottomBarRect:tabBar followingView:view controller:controller];
+            if (CGRectIsNull(tabRect)) continue;
             if (CGRectGetMinY(tabRect) < CGRectGetMidY(guide)) continue;
             CGRect available = [DYYYFullscreenGeometry unoccludedViewport:guide top:CGRectGetMinY(guide) panel:tabRect gap:0];
             if (!CGRectIsNull(available)) guide = available;
         }
-        guide.origin.y += pageTranslation;
         target = [parent convertRect:guide fromView:view.window];
     }
     BOOL activeComment = [self hasCommentInWindow:view.window];
@@ -703,11 +731,13 @@
 #pragma mark - 媒体容器
 
 + (void)layoutPlayerContainer:(UIViewController *)controller {
-    if (![NSThread isMainThread] || ![controller respondsToSelector:@selector(contentView)]) return;
+    Class pureListClass = NSClassFromString(@"AFDPureModePageListViewController");
+    BOOL pureModeList = pureListClass && [controller isKindOfClass:pureListClass];
+    if (![NSThread isMainThread] || (!pureModeList && ![controller respondsToSelector:@selector(contentView)])) return;
     UIView *view = controller.viewIfLoaded;
     if (!view.window || !view.superview) return;
     BOOL enabled = DYYYGetBool(@"DYYYEnableFullScreen") && [self usesFullscreenLayoutForController:controller];
-    UIView *content = [(AWEDPlayerViewController_Merge *)controller contentView];
+    UIView *content = pureModeList ? nil : [(AWEDPlayerViewController_Merge *)controller contentView];
     for (UIView *host in content && content != view ? @[view, content] : @[view]) {
         DYYYFullscreenPlayerState *state = objc_getAssociatedObject(host, @selector(state:));
         if (state.applying) continue;

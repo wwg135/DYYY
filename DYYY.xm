@@ -7221,7 +7221,20 @@ static void DYYYLiveDurationInstallFromInnerFeedCell(id cell) {
 %end
 
 // 纯净模式状态栏
+%hook AFDPureModePageListViewController
+- (void)viewWillLayoutSubviews {
+    // 先提供完整视口，再由原生更新 cell 尺寸、分页偏移和进度条。
+    [DYYYFullscreenCoordinator layoutPlayerContainer:self];
+    %orig;
+}
+%end
+
 %hook AFDPureModePageContainerViewController
+- (CGRect)getPureModeContainerFrame {
+    CGRect frame = %orig;
+    return [DYYYFullscreenCoordinator frameForPureModeContainer:self proposed:frame];
+}
+
 - (BOOL)prefersStatusBarHidden {
     if (DYYYGetBool(@"DYYYHideStatusbar")) {
         return YES;
@@ -11294,6 +11307,9 @@ static Class tabBarButtonClass = nil;
 - (void)viewDidLayoutSubviews {
     %orig;
 
+    // 离屏和复用中的互动层保留原生尺寸，避免回退布局与原生回收布局反复改高。
+    if (!self.viewIfLoaded.window) return;
+
     [DYYYFloatingButtonCoordinator registerInteractionController:self];
 
     UIViewController *directParentVC = self.parentViewController;
@@ -11632,6 +11648,8 @@ static Class tabBarButtonClass = nil;
 - (void)viewDidDisappear:(BOOL)animated {
     %orig;
     [DYYYFloatingButtonCoordinator pureModeController:self visible:NO];
+    // 清屏页归还媒体和互动层后，再让原页面按自己的底栏更新布局。
+    [DYYYFullscreenCoordinator invalidateGuides];
 }
 %end
 
