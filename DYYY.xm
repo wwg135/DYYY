@@ -13,10 +13,13 @@
 #import <math.h>
 #import <objc/message.h>
 #import <objc/runtime.h>
-#import <substrate.h>
 #import <syslog.h>
 
 #import "AwemeHeaders.h"
+#import "DYYYCommentPlaybackCoordinator.h"
+#import "DYYYHideMessageAndMinePageHooks.h"
+#import "DYYYExactInteractionCountHooks.h"
+
 #import "CityManager.h"
 #import "DYYYBottomAlertView.h"
 #import "DYYYManager.h"
@@ -808,32 +811,6 @@ static void DYYYHandleCurrentSpeedAwemeChanged(id aweme) {
             [DYYYToast showSuccessToastWithMessage:@"个人简介已复制"];
         }
     }
-}
-
-%end
-
-// 抖音 39.1.0 访问他人主页时会由详情组件直接上传访客记录
-%hook AWEProfileUserDetailComponent
-
-- (void)reportUserDetailVisitIfNeeded:(id)user {
-    if (DYYYGetBool(@"DYYYDisableProfileVisitRecordUpload")) {
-        return;
-    }
-
-    %orig;
-}
-
-%end
-
-// 兼容旧版访客记录上传路径
-%hook AWEProfileRecordHelper
-
-+ (void)postProfileRecordWithParams:(id)params completionBlock:(id)completionBlock {
-    if (DYYYGetBool(@"DYYYDisableProfileVisitRecordUpload")) {
-        return;
-    }
-
-    %orig;
 }
 
 %end
@@ -4085,30 +4062,6 @@ static NSString *const kDYYYLongPressCopyEnabledKey = @"DYYYLongPressCopyTextEna
 
     return bestURL;
 }
-%end
-
-// 屏蔽版本更新
-%hook AWEVersionUpdateManager
-
-- (void)startVersionUpdateWorkflow:(id)arg1 completion:(id)arg2 {
-    if (DYYYGetBool(@"DYYYNoUpdates")) {
-        if (arg2) {
-            void (^completionBlock)(void) = arg2;
-            completionBlock();
-        }
-    } else {
-        %orig;
-    }
-}
-
-- (id)workflow {
-    return DYYYGetBool(@"DYYYNoUpdates") ? nil : %orig;
-}
-
-- (id)badgeModule {
-    return DYYYGetBool(@"DYYYNoUpdates") ? nil : %orig;
-}
-
 %end
 
 // 应用内推送毛玻璃效果
@@ -8452,6 +8405,7 @@ static NSHashTable *processedParentViews = nil;
 
     // --- 配置读取 ---
     NSInteger daysThreshold = DYYYGetInteger(@"DYYYFilterTimeLimit");
+    BOOL skipFriendsVideo = DYYYGetBool(@"DYYYSkipFriendsVideo");
     BOOL skipLive = DYYYGetBool(@"DYYYSkipLive"); // 读取直播过滤开关
     NSInteger minLikesThreshold = DYYYGetInteger(@"DYYYFilterLowLikes"); // 读取低赞过滤阈值 (例如: 1000)
     BOOL skipPhotoText = DYYYGetBool(@"DYYYSkipPhotoText"); // 图文过滤
@@ -8480,6 +8434,9 @@ static NSHashTable *processedParentViews = nil;
         }
 
         // 2. 直播过滤逻辑 (仅依赖 cellRoom)
+        if (skipFriendsVideo && [m.referString isEqualToString:@"homepage_hot"] &&
+            [m respondsToSelector:@selector(isFamiliarItem)] && m.isFamiliarItem) continue;
+
         if (skipLive && [m respondsToSelector:@selector(cellRoom)] && m.cellRoom != nil) {
             continue; // 命中直播过滤，跳过
         }
@@ -8714,6 +8671,8 @@ static NSHashTable *processedParentViews = nil;
     BOOL isRecommendFeed = [self.referString isEqualToString:@"homepage_hot"];
     BOOL shouldskipPhoto = skipPhoto && (self.awemeType == 68) && isRecommendFeed;
     BOOL shouldskipPhotoText = skipPhotoText && self.isNewTextMode && isRecommendFeed;
+    BOOL shouldFilterFriendsVideo = DYYYGetBool(@"DYYYSkipFriendsVideo") && isRecommendFeed &&
+        [self respondsToSelector:@selector(isFamiliarItem)] && self.isFamiliarItem;
     BOOL shouldFilterMusic = skipMusic && self.musicCard && isRecommendFeed;
     BOOL shouldFilterAIInteraction = skipAIInteraction && (self.awemeType == 162) && isRecommendFeed;
     BOOL shouldFilterHDR = NO;
@@ -8831,7 +8790,7 @@ static NSHashTable *processedParentViews = nil;
         }
     }
 
-    return shouldFilterAds || shouldFilterAllLive || shouldFilterHotSpot || shouldFilterMusic || shouldFilterHDR || shouldFilterKeywords || shouldFilterProp ||
+    return shouldFilterAds || shouldFilterAllLive || shouldFilterHotSpot || shouldFilterFriendsVideo || shouldFilterMusic || shouldFilterHDR || shouldFilterKeywords || shouldFilterProp ||
            shouldFilterTime || shouldFilterUser;
 }
 
@@ -10077,6 +10036,7 @@ static NSHashTable *processedParentViews = nil;
         AWEAwemeModel *awemeModel = nil;
 
         awemeModel = [self performSelector:@selector(awemeModel)];
+        [DYYYManager setAlbumDescriptionContextWithAwemeModel:awemeModel];
 
         AWEVideoModel *videoModel = awemeModel.video;
         AWEMusicModel *musicModel = awemeModel.music;
@@ -11004,9 +10964,15 @@ static Class tabBarButtonClass = nil;
 
 %hook AWECommentContainerViewController
 
+- (void)viewWillAppear:(BOOL)animated {
+    %orig(animated);
+    [DYYYCommentPlaybackCoordinator commentController:self visible:YES];
+}
+
 - (void)viewDidAppear:(BOOL)animated {
     %orig;
     [DYYYFloatingButtonCoordinator commentController:self visible:YES];
+    [DYYYCommentPlaybackCoordinator commentController:self visible:YES];
     NSString *transparentValue = [[NSUserDefaults standardUserDefaults] objectForKey:@"DYYYTopBarTransparent"];
     if (transparentValue && transparentValue.length > 0) {
         CGFloat alphaValue = [transparentValue floatValue];
@@ -11026,7 +10992,10 @@ static Class tabBarButtonClass = nil;
 }
 
 - (void)viewDidDisappear:(BOOL)animated {
+    BOOL skipsLifecycle = [DYYYCommentPlaybackCoordinator shouldSkipLifecycle:self];
     %orig;
+    if (skipsLifecycle) return;
+    [DYYYCommentPlaybackCoordinator commentController:self visible:NO];
     [DYYYFullscreenCoordinator commentController:self visible:NO];
     [DYYYFloatingButtonCoordinator commentController:self visible:NO];
 }
@@ -12845,6 +12814,9 @@ static void findTargetViewInView(UIView *view) {
             %init(EnableStickerSaveMenu);
         }
         [DYYYFloatingButtonCoordinator reloadConfiguration];
+        DYYYStartHideMessageAndMinePageHooks();
+        DYYYStartExactInteractionCountHooks();
+
 
         // 各版本原生回调参数有差异，签名匹配时才接管锁速状态。
         Class speedClass = NSClassFromString(@"AWEPlayInteractionSpeedController");

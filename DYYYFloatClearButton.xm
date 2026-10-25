@@ -6,6 +6,7 @@
  */
 #import "DYYYFloatSpeedButton.h"
 #import "DYYYFloatClearButton.h"
+#import "DYYYConstants.h"
 #import "DYYYUtils.h"
 #import "DYYYFloatingButtonCoordinator.h"
 #import <Foundation/Foundation.h>
@@ -15,7 +16,18 @@
 #import <objc/runtime.h>
 #import <signal.h>
 
+static const CGFloat kDYYYClearButtonEdgeInset = 8.0;
+static const CGFloat kDYYYClearButtonDefaultYFromBottomPercent = 0.75;
+
+typedef NS_ENUM(NSInteger, DYYYClearButtonEdge) {
+    DYYYClearButtonEdgeLeft = 0,
+    DYYYClearButtonEdgeRight,
+    DYYYClearButtonEdgeTop,
+    DYYYClearButtonEdgeBottom,
+};
+
 @interface HideUIButton ()
+@property(nonatomic, assign) DYYYClearButtonEdge dyyyActiveDragEdge;
 @property(nonatomic, assign) BOOL manualClearActive;
 - (void)updateClearState;
 @property(nonatomic, strong) NSHashTable<UIView *> *progressViews;
@@ -358,6 +370,7 @@ void reloadClearButtonConfiguration(void) {
         hideButton.manualClearActive = NO;
         [hideButton updateClearState];
     }
+    if (hideButton.superview) [hideButton loadSavedPosition];
     if (![hideButton isDescendantOfView:activeWindow]) {
         [activeWindow addSubview:hideButton];
         [hideButton loadSavedPosition];
@@ -491,7 +504,7 @@ void reloadClearButtonConfiguration(void) {
         NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
         CGFloat centerXPercent = self.center.x / self.superview.bounds.size.width;
         CGFloat centerYPercent = self.center.y / self.superview.bounds.size.height;
-        
+
         [defaults setFloat:centerXPercent forKey:@"DYYYHideButtonCenterXPercent"];
         [defaults setFloat:centerYPercent forKey:@"DYYYHideButtonCenterYPercent"];
     }
@@ -501,18 +514,16 @@ void reloadClearButtonConfiguration(void) {
     if (!self.superview) {
         return;
     }
-    
+
     NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
-    float centerXPercent = [defaults floatForKey:@"DYYYHideButtonCenterXPercent"];
-    float centerYPercent = [defaults floatForKey:@"DYYYHideButtonCenterYPercent"];
-    
-    if (centerXPercent > 0 && centerYPercent > 0) {
-        self.center = CGPointMake(centerXPercent * self.superview.bounds.size.width,
-                                  centerYPercent * self.superview.bounds.size.height);
+    CGPoint targetCenter;
+    if ([self dyyyHasSavedPosition]) {
+        targetCenter = CGPointMake([defaults floatForKey:@"DYYYHideButtonCenterXPercent"] * self.superview.bounds.size.width,
+                                   [defaults floatForKey:@"DYYYHideButtonCenterYPercent"] * self.superview.bounds.size.height);
     } else {
-        self.center = CGPointMake(self.superview.bounds.size.width / 2.0f,
-                                  self.superview.bounds.size.height / 3.0f);
+        targetCenter = [self dyyyDefaultCenter];
     }
+    self.center = [self dyyyConstrainedCenterForProposedCenter:targetCenter];
 }
 
 - (void)saveLockState {
@@ -597,15 +608,32 @@ void reloadClearButtonConfiguration(void) {
         return;
 
     [self resetFadeTimer];
-    CGPoint translation = [gesture translationInView:self.superview];
-    CGPoint newCenter = CGPointMake(self.center.x + translation.x, self.center.y + translation.y);
-    newCenter.x = MAX(self.frame.size.width / 2, MIN(newCenter.x, self.superview.frame.size.width - self.frame.size.width / 2));
-    newCenter.y = MAX(self.frame.size.height / 2, MIN(newCenter.y, self.superview.frame.size.height - self.frame.size.height / 2));
-    self.center = newCenter;
-    [gesture setTranslation:CGPointZero inView:self.superview];
+    if (gesture.state == UIGestureRecognizerStateBegan) {
+        if ([self dyyyStickToEdgeEnabled]) {
+            self.dyyyActiveDragEdge = [self dyyyNearestEdgeForPoint:self.center];
+            self.center = [self dyyyCenterOnEdge:self.dyyyActiveDragEdge forPoint:self.center];
+        }
+    } else if (gesture.state == UIGestureRecognizerStateChanged) {
+        CGPoint touchPoint = [gesture locationInView:self.superview];
+        if ([self dyyyStickToEdgeEnabled]) {
+            DYYYClearButtonEdge nearestEdge = [self dyyyNearestEdgeForPoint:touchPoint];
+            CGFloat currentDistance = [self dyyyDistanceFromPoint:touchPoint toEdge:self.dyyyActiveDragEdge];
+            CGFloat nearestDistance = [self dyyyDistanceFromPoint:touchPoint toEdge:nearestEdge];
+            if (nearestEdge != self.dyyyActiveDragEdge && nearestDistance + 12.0 < currentDistance) {
+                self.dyyyActiveDragEdge = nearestEdge;
+            }
+            self.center = [self dyyyCenterOnEdge:self.dyyyActiveDragEdge forPoint:touchPoint];
+        } else {
+            self.center = [self dyyyClampedCenterForProposedCenter:touchPoint];
+        }
+    }
 
     if (gesture.state == UIGestureRecognizerStateEnded || gesture.state == UIGestureRecognizerStateCancelled) {
+        self.center = [self dyyyConstrainedCenterForProposedCenter:self.center];
         [self saveButtonPosition];
+        if ([self dyyy_isInSelfHiddenState]) {
+            [self dyyy_showEdgeIndicator];
+        }
     }
 }
 
@@ -856,4 +884,131 @@ void reloadClearButtonConfiguration(void) {
     [self stopTimers];
     [self.edgeIndicatorView removeFromSuperview];
 }
+- (BOOL)dyyyEdgeMetricsWithLeftX:(CGFloat *)leftX
+                          rightX:(CGFloat *)rightX
+                            topY:(CGFloat *)topY
+                         bottomY:(CGFloat *)bottomY
+                            minX:(CGFloat *)minX
+                            maxX:(CGFloat *)maxX
+                            minY:(CGFloat *)minY
+                            maxY:(CGFloat *)maxY {
+    if (!self.superview) {
+        return NO;
+    }
+
+    CGSize size = self.superview.bounds.size;
+    CGFloat halfWidth = CGRectGetWidth(self.bounds) * 0.5;
+    CGFloat halfHeight = CGRectGetHeight(self.bounds) * 0.5;
+    *leftX = halfWidth + kDYYYClearButtonEdgeInset;
+    *rightX = size.width - halfWidth - kDYYYClearButtonEdgeInset;
+    *topY = halfHeight + kDYYYClearButtonEdgeInset;
+    *bottomY = size.height - halfHeight - kDYYYClearButtonEdgeInset;
+    *minX = halfWidth + kDYYYClearButtonEdgeInset;
+    *maxX = size.width - halfWidth - kDYYYClearButtonEdgeInset;
+    *minY = halfHeight + kDYYYClearButtonEdgeInset;
+    *maxY = size.height - halfHeight - kDYYYClearButtonEdgeInset;
+    return YES;
+}
+
+- (CGFloat)dyyyDistanceFromPoint:(CGPoint)point toEdge:(DYYYClearButtonEdge)edge {
+    CGFloat leftX, rightX, topY, bottomY, minX, maxX, minY, maxY;
+    if (![self dyyyEdgeMetricsWithLeftX:&leftX rightX:&rightX topY:&topY bottomY:&bottomY minX:&minX maxX:&maxX minY:&minY maxY:&maxY]) {
+        return CGFLOAT_MAX;
+    }
+
+    switch (edge) {
+        case DYYYClearButtonEdgeLeft:
+            return fabs(point.x - leftX);
+        case DYYYClearButtonEdgeRight:
+            return fabs(point.x - rightX);
+        case DYYYClearButtonEdgeTop:
+            return fabs(point.y - topY);
+        case DYYYClearButtonEdgeBottom:
+            return fabs(point.y - bottomY);
+    }
+}
+
+- (DYYYClearButtonEdge)dyyyNearestEdgeForPoint:(CGPoint)point {
+    DYYYClearButtonEdge edge = DYYYClearButtonEdgeLeft;
+    CGFloat minDistance = [self dyyyDistanceFromPoint:point toEdge:edge];
+    for (NSInteger rawEdge = DYYYClearButtonEdgeRight; rawEdge <= DYYYClearButtonEdgeBottom; rawEdge++) {
+        DYYYClearButtonEdge candidate = (DYYYClearButtonEdge)rawEdge;
+        CGFloat distance = [self dyyyDistanceFromPoint:point toEdge:candidate];
+        if (distance < minDistance) {
+            minDistance = distance;
+            edge = candidate;
+        }
+    }
+    return edge;
+}
+
+- (CGPoint)dyyyCenterOnEdge:(DYYYClearButtonEdge)edge forPoint:(CGPoint)point {
+    CGFloat leftX, rightX, topY, bottomY, minX, maxX, minY, maxY;
+    if (![self dyyyEdgeMetricsWithLeftX:&leftX rightX:&rightX topY:&topY bottomY:&bottomY minX:&minX maxX:&maxX minY:&minY maxY:&maxY]) {
+        return point;
+    }
+
+    switch (edge) {
+        case DYYYClearButtonEdgeLeft:
+            return CGPointMake(leftX, MIN(MAX(point.y, minY), maxY));
+        case DYYYClearButtonEdgeRight:
+            return CGPointMake(rightX, MIN(MAX(point.y, minY), maxY));
+        case DYYYClearButtonEdgeTop:
+            return CGPointMake(MIN(MAX(point.x, minX), maxX), topY);
+        case DYYYClearButtonEdgeBottom:
+            return CGPointMake(MIN(MAX(point.x, minX), maxX), bottomY);
+    }
+}
+
+- (CGPoint)dyyySnappedCenterForProposedCenter:(CGPoint)center {
+    return [self dyyyCenterOnEdge:[self dyyyNearestEdgeForPoint:center] forPoint:center];
+}
+
+- (CGPoint)dyyyClampedCenterForProposedCenter:(CGPoint)center {
+    CGFloat minX, maxX, minY, maxY;
+    CGFloat unusedLeft, unusedRight, unusedTop, unusedBottom;
+    if (![self dyyyEdgeMetricsWithLeftX:&unusedLeft rightX:&unusedRight topY:&unusedTop bottomY:&unusedBottom minX:&minX maxX:&maxX minY:&minY maxY:&maxY]) {
+        return center;
+    }
+    return CGPointMake(MIN(MAX(center.x, minX), maxX), MIN(MAX(center.y, minY), maxY));
+}
+
+- (BOOL)dyyyStickToEdgeEnabled {
+    return [[NSUserDefaults standardUserDefaults] boolForKey:DYYY_CLEAR_BUTTON_STICK_TO_EDGE_KEY];
+}
+
+- (CGPoint)dyyyConstrainedCenterForProposedCenter:(CGPoint)center {
+    if ([self dyyyStickToEdgeEnabled]) {
+        return [self dyyySnappedCenterForProposedCenter:center];
+    }
+    return [self dyyyClampedCenterForProposedCenter:center];
+}
+
+- (BOOL)dyyyHasSavedPosition {
+    NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
+    return [defaults objectForKey:@"DYYYHideButtonCenterXPercent"] != nil &&
+           [defaults objectForKey:@"DYYYHideButtonCenterYPercent"] != nil;
+}
+
+- (CGPoint)dyyyDefaultCenter {
+    CGFloat leftX, rightX, topY, bottomY, minX, maxX, minY, maxY;
+    if (![self dyyyEdgeMetricsWithLeftX:&leftX rightX:&rightX topY:&topY bottomY:&bottomY minX:&minX maxX:&maxX minY:&minY maxY:&maxY]) {
+        return self.center;
+    }
+    CGFloat defaultY = MIN(MAX(self.superview.bounds.size.height * (1.0 - kDYYYClearButtonDefaultYFromBottomPercent), minY), maxY);
+    return CGPointMake(rightX, defaultY);
+}
+
+- (void)resetToDefaultPosition {
+    if (!self.superview) {
+        return;
+    }
+
+    NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
+    [defaults removeObjectForKey:@"DYYYHideButtonCenterXPercent"];
+    [defaults removeObjectForKey:@"DYYYHideButtonCenterYPercent"];
+    self.center = [self dyyyDefaultCenter];
+    [self resetFadeTimer];
+}
+
 @end

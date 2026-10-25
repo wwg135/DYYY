@@ -39,6 +39,7 @@ void DYYYApplyFloatClearProgressStateToView(UIView *view);
 @property(nonatomic, strong) UIView *edgeIndicatorView;
 - (void)resetFadeTimer;
 - (void)loadSavedPosition;
+- (void)resetToDefaultPosition;
 - (void)hideUIElements;
 - (void)findAndHideViews:(NSArray *)classNames;
 - (void)safeResetState;

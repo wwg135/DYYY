@@ -17,6 +17,16 @@
 - (void)resetButtonState;
 - (void)toggleLockState;
 - (void)resetFadeTimer;
+@property(nonatomic, strong) NSTimer *autoHideTimer;
+@property(nonatomic, strong) UIView *edgeIndicatorView;
+@property(nonatomic, assign) BOOL isEdgeHidden;
+@property(nonatomic, assign) BOOL dyyyEdgeHiddenByClearMode;
+@property(nonatomic, assign) BOOL dyyyJustRestoredFromEdgeHidden;
+- (void)resetToDefaultPosition;
+- (void)dyyy_schedulePresentationTimersIfNeeded;
+- (void)dyyy_restoreFromEdgeHidden;
+- (void)dyyy_hideEdgeIndicator;
+- (void)dyyy_showEdgeIndicator;
 @end
 
 #ifdef __cplusplus

@@ -179,7 +179,7 @@
             initTargetClassNames();
         }
         // 配置方法只在内容变化时更新外观，不随每次布局重设标题、位置和淡出计时器。
-        [FloatingSpeedButton reloadConfiguration];
+        if (configurationChanged) [FloatingSpeedButton reloadConfiguration];
         // 倍速列表、默认倍速和索引也影响文案，仅配置通知时重算，普通布局不重算。
         if (configurationChanged) updateSpeedButtonUI();
         BOOL clearEnabled = [defaults boolForKey:@"DYYYEnableFloatClearButton"];
@@ -216,6 +216,7 @@
                 [speedButton.superview bringSubviewToFront:speedButton];
             }
         }
+        if (speedButton.edgeIndicatorView) speedButton.edgeIndicatorView.hidden = speedHidden || !speedButton.isEdgeHidden;
         if (hideButton && hideButton.hidden != clearHidden) {
             hideButton.hidden = clearHidden;
             if (!clearHidden) [hideButton.superview bringSubviewToFront:hideButton];

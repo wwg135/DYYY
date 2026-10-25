@@ -15,6 +15,7 @@
 // Modern风格长按面板（新版UI）
 %hook AWEModernLongPressPanelTableViewController
 - (NSArray *)dataArray {
+    [DYYYManager setAlbumDescriptionContextWithAwemeModel:self.awemeModel];
     // 检查是否开启精简模式
     BOOL simplifyPanel = DYYYGetBool(@"DYYYSimplifyLongPressPanel");
 
@@ -779,6 +780,7 @@
 // 经典风格长按面板
 %hook AWELongPressPanelTableViewController
 - (NSArray *)dataArray {
+    [DYYYManager setAlbumDescriptionContextWithAwemeModel:self.awemeModel];
     NSArray *originalArray = %orig;
     if (!originalArray) {
         originalArray = @[];
@@ -1529,7 +1531,8 @@
     for (id item in inputArray) {
         NSString *className = NSStringFromClass([item class]);
 
-        BOOL shouldFilter = ([className isEqualToString:@"AWECommentIMSwiftImpl.CommentLongPressPanelForwardElement"] &&
+        BOOL shouldFilter = ([className isEqualToString:@"AWECommentLongPressPanelSwiftImpl.CommentLongPressPanelFavoriteCommentElement"] && DYYYGetBool(@"DYYYHideCommentLongPressFavorite")) ||
+                            ([className isEqualToString:@"AWECommentIMSwiftImpl.CommentLongPressPanelForwardElement"] &&
                              [[NSUserDefaults standardUserDefaults] boolForKey:@"DYYYHideCommentLongPressDaily"]) ||
 
                             ([className isEqualToString:@"AWECommentLongPressPanelSwiftImpl.CommentLongPressPanelCopyElement"] &&

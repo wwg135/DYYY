@@ -1,4 +1,9 @@
 #import "DYYYSettingsHelper.h"
+#import "DYYYConstants.h"
+#import <math.h>
+#import "DYYYFloatSpeedButton.h"
+#import "DYYYFloatClearButton.h"
+#import "DYYYFloatingButtonCoordinator.h"
 #import <UIKit/UIKit.h>
 #import <objc/runtime.h>
 #import "DYYYImagePickerDelegate.h"
@@ -9,6 +14,51 @@
 #import "DYYYIconOptionsDialogView.h"
 
 @implementation DYYYSettingsHelper
+
+#pragma mark - 悬浮按钮位置与自动隐藏设置
+
++ (AWESettingItemModel *)floatingButtonInputItemForKey:(NSString *)key title:(NSString *)title placeholder:(NSString *)placeholder minimum:(double)minimum maximum:(double)maximum {
+    AWESettingItemModel *item = [self createSettingItem:@{@"identifier":key, @"title":title, @"detail":placeholder, @"cellType":@26, @"imageName":@"ic_zoomin_outlined_20"}];
+    id value = [NSUserDefaults.standardUserDefaults objectForKey:key];
+    item.detail = value ? [NSString stringWithFormat:@"%.4g", [value doubleValue]] : @"默认";
+    __weak AWESettingItemModel *weakItem = item;
+    item.cellTappedBlock = ^{
+        AWESettingItemModel *target = weakItem;
+        if (!target.isEnable) return;
+        id stored = [NSUserDefaults.standardUserDefaults objectForKey:key];
+        [self showTextInputAlert:title defaultText:stored ? [stored description] : @"" placeholder:placeholder onConfirm:^(NSString *text) {
+            double number = 0;
+            NSScanner *scanner = [NSScanner scannerWithString:text];
+            if (![scanner scanDouble:&number] || !scanner.isAtEnd || !isfinite(number) || number < minimum || number > maximum) {
+                [DYYYUtils showToast:[NSString stringWithFormat:@"请输入 %.4g–%.4g 范围内的数值", minimum, maximum]];
+                return;
+            }
+            [NSUserDefaults.standardUserDefaults setDouble:number forKey:key];
+            target.detail = [NSString stringWithFormat:@"%.4g", number];
+            [target refreshCell];
+            [DYYYFloatingButtonCoordinator reloadConfiguration];
+            [speedButton loadSavedPosition];
+            [hideButton loadSavedPosition];
+        } onCancel:nil];
+    };
+    return item;
+}
+
++ (AWESettingItemModel *)floatingButtonResetItemForSpeed:(BOOL)isSpeed {
+    NSString *key = isSpeed ? DYYY_RESET_SPEED_BUTTON_POSITION_KEY : DYYY_RESET_CLEAR_BUTTON_POSITION_KEY;
+    AWESettingItemModel *item = [self createSettingItem:@{@"identifier":key, @"title":@"重置按钮位置", @"detail":@"", @"cellType":@26, @"imageName":@"ic_switch_outlined"}];
+    __weak AWESettingItemModel *weakItem = item;
+    item.cellTappedBlock = ^{
+        if (!weakItem.isEnable) return;
+        NSString *prefix = isSpeed ? @"DYYYSpeedButtonCenter" : @"DYYYHideButtonCenter";
+        [NSUserDefaults.standardUserDefaults removeObjectForKey:[prefix stringByAppendingString:@"XPercent"]];
+        [NSUserDefaults.standardUserDefaults removeObjectForKey:[prefix stringByAppendingString:@"YPercent"]];
+        if (isSpeed) [speedButton resetToDefaultPosition];
+        else [hideButton resetToDefaultPosition];
+        [DYYYUtils showToast:@"已重置按钮位置"];
+    };
+    return item;
+}
 
 // 获取用户默认设置
 + (BOOL)getUserDefaults:(NSString *)key {
@@ -58,9 +108,9 @@
               @"DYYYEnableArea" : @[ @"DYYYGeonamesUsername", @"DYYYLabelColor", @"DYYYEnableRandomGradient" ],
               @"DYYYShowScheduleDisplay" : @[ @"DYYYScheduleStyle", @"DYYYProgressLabelColor", @"DYYYTimelineVerticalPosition" ],
               @"DYYYEnableNotificationTransparency" : @[ @"DYYYNotificationCornerRadius" ],
-              @"DYYYEnableFloatSpeedButton" : @[ @"DYYYAutoRestoreSpeed", @"DYYYSpeedButtonShowX", @"DYYYSpeedButtonSize", @"DYYYSpeedSettings" ],
+              @"DYYYEnableFloatSpeedButton" : @[ @"DYYYAutoRestoreSpeed", @"DYYYSpeedButtonShowX", @"DYYYSpeedButtonSize", @"DYYYSpeedSettings", @"DYYYAutoHideSpeedButton", DYYY_SPEED_BUTTON_STICK_TO_EDGE_KEY, DYYY_RESET_SPEED_BUTTON_POSITION_KEY, @"DYYYSpeedButtonCenterXPercent", @"DYYYSpeedButtonCenterYPercent" ],
               @"DYYYEnableFloatClearButton" : @[
-                  @"DYYYClearButtonIcon", @"DYYYEnableFloatClearButtonSize", @"DYYYRemoveTimeProgress", @"DYYYHideTimeProgress", @"DYYYHideDanmaku", @"DYYYHideSlider", @"DYYYHideTabBar",
+                  DYYY_CLEAR_BUTTON_STICK_TO_EDGE_KEY, DYYY_RESET_CLEAR_BUTTON_POSITION_KEY, @"DYYYHideButtonCenterXPercent", @"DYYYHideButtonCenterYPercent", @"DYYYClearButtonIcon", @"DYYYEnableFloatClearButtonSize", @"DYYYRemoveTimeProgress", @"DYYYHideTimeProgress", @"DYYYHideDanmaku", @"DYYYHideSlider", @"DYYYHideTabBar",
                   @"DYYYHideSpeed", @"DYYYHideClearButtonOnTap", @"DYYYHideChapter", @"DYYYHidePauseVideoIcon", @"DYYYHideStatusBarOnClear"
               ],
               @"DYYYEnableModernPanel" : @[ @"DYYYLongPressPanelBlur", @"DYYYLongPressPanelDark" ],
@@ -70,6 +120,8 @@
           // ===== 条件依赖配置 =====
           // 一些设置项依赖于多个其他设置项的复杂条件
           @"conditionalDependencies" : @{
+              @"DYYYAutoHideSpeedButton" : @{@"condition":@"AND", @"settings":@[@"DYYYEnableFloatSpeedButton", DYYY_SPEED_BUTTON_STICK_TO_EDGE_KEY]},
+              @"DYYYAutoHideSpeedButtonTime" : @{@"condition":@"AND", @"settings":@[@"DYYYEnableFloatSpeedButton", DYYY_SPEED_BUTTON_STICK_TO_EDGE_KEY, @"DYYYAutoHideSpeedButton"]},
               @"DYYYCommentBlurTransparent" : @{@"condition" : @"OR", @"settings" : @[ @"DYYYEnableCommentBlur", @"DYYYEnableNotificationTransparency" ]},
           },
 

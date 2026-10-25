@@ -27,6 +27,9 @@ typedef NS_ENUM(NSUInteger, DYEdgeMode) {
     DYEdgeModeVolume = 2,
 };
 
+@class AWEPlayInteractionContext;
+@class _TtC33AWECommentPanelContainerSwiftImpl31CommentViewControllerStateModel;
+
 @interface UIView (DYYYGlobalAlpha)
 - (void)dyyy_applyGlobalTransparency;
 @end
@@ -110,6 +113,11 @@ typedef NS_ENUM(NSUInteger, DYEdgeMode) {
 @property(copy, nonatomic) NSString *shortID;
 @property(copy, nonatomic) NSString *signature;
 @property(copy, nonatomic) AWEURLModel *avatarMedium;
+
+@property(retain, nonatomic) NSString *secUserID;
+@property(retain, nonatomic) NSString *userID;
+- (NSString *)uniqueIDForShow;
+- (NSString *)tiktokDisplayID;
 @end
 
 @interface AWEAnimatedImageVideoInfo : NSObject
@@ -173,6 +181,9 @@ typedef NS_ENUM(NSUInteger, DYEdgeMode) {
 - (BOOL)awe_enableHDR;
 - (id)awe_HDRValueFor:(long long)value enableHDR:(BOOL)enableHDR;
 - (AWESearchAwemeExtraModel *)searchExtraModel;
+
+@property(nonatomic, copy) NSString *caption;
+@property(nonatomic, assign) BOOL isFamiliarItem;
 @end
 
 @interface AWEHotListDataController : NSObject
@@ -375,6 +386,9 @@ typedef NS_ENUM(NSUInteger, DYEdgeMode) {
 - (void)speedButtonTapped:(id)sender;
 - (void)buttonTouchDown:(id)sender;
 - (void)buttonTouchUp:(id)sender;
+
+@property(nonatomic, weak) id richContentContainer;
+@property(nonatomic, strong) AWEPlayInteractionContext *context;
 @end
 
 @interface HTSLiveRoomStatsMessage : NSObject
@@ -382,6 +396,8 @@ typedef NS_ENUM(NSUInteger, DYEdgeMode) {
 @end
 
 @interface AWEFeedVideoButton : UIButton
+
+- (void)setLabelString:(NSString *)labelString;
 @end
 
 @interface AWEMusicCoverButton : UIButton
@@ -473,6 +489,8 @@ typedef NS_ENUM(NSUInteger, DYEdgeMode) {
 @end
 
 @interface AWECommentContainerViewController : UIViewController
+
+- (_TtC33AWECommentPanelContainerSwiftImpl31CommentViewControllerStateModel *)state;
 @end
 
 @interface AWECommentInputViewController : UIViewController
@@ -1988,4 +2006,135 @@ typedef NS_ENUM(NSUInteger, DYEdgeMode) {
 
 // 新版评论容器的 Logos 映射名，运行时绑定 Swift 完整类名。
 @interface AWECommentPanelContainerSwiftImpl_CommentContainerInnerViewController : UIViewController
+@end
+
+#pragma mark - main 新增功能私有接口
+
+@interface AWEUserService : NSObject
++ (instancetype)sharedService;
+- (BOOL)isLogin;
+- (NSString *)userID;
+- (AWEUserModel *)currentLoginUser;
+@end
+
+@interface AWEUserServiceListener : NSObject
+- (void)didFinishLoginWithUid:(NSString *)userID;
+- (void)didFinishLogoutWithUid:(NSString *)userID;
+@end
+
+@interface TTAccountMulticast : NSObject
+- (void)broadcastLoginSuccess:(id)user platform:(id)platform reason:(long long)reason;
+@end
+
+@interface AWEPlayInteractionLikeViewSubElement : NSObject
+- (void)updateDiggCount;
+- (AWEAwemeModel *)model;
+- (AWEFeedVideoButton *)likeButton;
+- (AWEFeedVideoButton *)button;
+@end
+
+@interface AWEPlayInteractionDiversionBar : UIView
+@end
+
+@interface AWEPlayInteractionNewDiversionBarBottomElement : NSObject
+@property(nonatomic, strong) AWEPlayInteractionDiversionBar *diversionBarView;
+@end
+
+@interface AWEDouYinSelectUGBottomBarController : NSObject
+- (BOOL)canShowBottomBarForAweme:(id)aweme;
+- (void)updateBottomBarWithAweme:(id)aweme updateTiming:(BOOL)updateTiming;
+- (void)bottomBarAddedToContainer:(id)container;
+@property(nonatomic, strong) UIView *appGuideView;
+@property(nonatomic, strong) UIView *appGuideContainer;
+@end
+
+@interface _TtC33AWECommentPanelContainerSwiftImpl30CommentContainerInnerViewModel : NSObject
+- (instancetype)init;
+- (void)setTabManager:(id)tabManager;
+- (BOOL)isFeedVideoPlaying;
+- (id)feedVideoPlayerController;
+- (void)pauseVideoIfPlayingWithoutShowingPauseIcon;
+- (void)recoverPlayIfPauseByComment;
+@end
+
+@interface AWECommentMediaFeedParams : NSObject
+@property(nonatomic, copy) BOOL (^panelVideoHasPausedByComment)(void);
+@property(nonatomic, copy) BOOL (^fullPanelShouldPreventPlay)(void);
+@end
+
+@interface AWEIMMessageTabNavBarResourceSlotComponent : NSObject
+- (BOOL)canShowInNaviBar;
+@end
+
+@interface AWEIMMessageTabNavBarResourceSlotComponentV2 : NSObject
+- (BOOL)canShowInNaviBar;
+@end
+
+@interface AWEProfileAvatarStoryPublishController : NSObject
+- (BOOL)canShow;
+- (void)updateUIWithContainerView:(UIView *)containerView anchorView:(UIView *)anchorView;
+@end
+
+@interface AWEProfileHeaderGenericOperationComponent : NSObject
+- (id)buildVirtualView:(id)data;
+- (void)updateComponentData:(id)data;
+@end
+
+@interface AFDPlayerAndInteractionService : NSObject
+- (void)statisticsVideoViewedWithID:(NSString *)itemID scene:(NSString *)scene;
+- (void)statisticsVideoViewedWithID:(NSString *)itemID
+                           authorID:(NSString *)authorID
+                       followStatus:(long long)followStatus
+                     followerStatus:(long long)followerStatus
+                            isStory:(BOOL)isStory
+                  isRequestDirectly:(BOOL)isRequestDirectly
+                              scene:(NSString *)scene;
+@end
+
+@interface AWENetworkService : NSObject
++ (id)postWithURLString:(NSString *)URLString params:(id)params completion:(id)completion;
++ (id)getWithURLString:(NSString *)URLString params:(id)params completion:(id)completion;
++ (id)requestWithURLString:(NSString *)URLString params:(id)params method:(id)method completion:(id)completion;
++ (id)postWithURLString:(NSString *)URLString params:(id)params headerField:(id)headerField completion:(id)completion;
++ (id)getWithURLString:(NSString *)URLString params:(id)params headerField:(id)headerField completion:(id)completion;
+@end
+
+@interface TTNetworkManager : NSObject
++ (instancetype)shareInstance;
+- (id)requestForJSONWithURL:(NSString *)url
+                     params:(id)params
+                     method:(NSString *)method
+           needCommonParams:(BOOL)needCommonParams
+                headerField:(id)headerField
+          requestSerializer:(Class)requestSerializerClass
+         responseSerializer:(Class)responseSerializerClass
+                 autoResume:(BOOL)autoResume
+                   callback:(id)callback;
+- (id)requestForJSONWithResponse:(NSString *)url
+                          params:(id)params
+                          method:(NSString *)method
+                needCommonParams:(BOOL)needCommonParams
+                     headerField:(id)headerField
+               requestSerializer:(Class)requestSerializerClass
+              responseSerializer:(Class)responseSerializerClass
+                      autoResume:(BOOL)autoResume
+                        callback:(id)callback;
+- (id)requestForBinaryWithResponse:(NSString *)url
+                            params:(id)params
+                            method:(NSString *)method
+                  needCommonParams:(BOOL)needCommonParams
+                       headerField:(id)headerField
+                          callback:(id)callback;
+@end
+
+@interface IESLiveFlowGuidanceAdView : UIView
+@end
+
+@interface IESLiveFlowGuidanceFragment : NSObject
++ (BOOL)componentShouldActive:(id)attacher;
+@end
+
+@interface _TtC33AWECommentPanelContainerSwiftImpl31CommentViewControllerStateModel : NSObject
+- (BOOL)isSkipCommentPanelLifecycle;
+- (BOOL)isCommentImageBrowsing;
 @end

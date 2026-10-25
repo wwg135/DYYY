@@ -2415,6 +2415,219 @@ static void DYYYAppendViewTree(UIView *view, NSMutableString *buffer, NSUInteger
     });
 }
 
+
+#pragma mark - 相册作品说明元数据
+
++ (NSString *)authorProfileURL:(AWEUserModel *)author {
+    if (!author) {
+        return nil;
+    }
+
+    if ([author respondsToSelector:@selector(secUserID)]) {
+        NSString *secUserID = author.secUserID;
+        if ([secUserID isKindOfClass:[NSString class]] && secUserID.length > 0) {
+            return [NSString stringWithFormat:@"https://www.douyin.com/user/%@", secUserID];
+        }
+    }
+
+    return nil;
+}
+
++ (NSString *)compactAlbumURL:(NSString *)rawURL {
+    if (![rawURL isKindOfClass:[NSString class]] || rawURL.length == 0) {
+        return nil;
+    }
+
+    NSURLComponents *components = [NSURLComponents componentsWithString:rawURL];
+    NSString *scheme = components.scheme.lowercaseString;
+    NSString *host = components.host.lowercaseString;
+    NSString *path = components.percentEncodedPath.length > 0 ? components.percentEncodedPath : components.path;
+    if (![scheme isEqualToString:@"http"] && ![scheme isEqualToString:@"https"]) {
+        return nil;
+    }
+    if (host.length == 0 || path.length == 0 || ![path hasPrefix:@"/"]) {
+        return nil;
+    }
+
+    // 只保留协议、域名和路径，明确丢弃 query 与 fragment，避免把分享追踪参数写入相册。
+    return [NSString stringWithFormat:@"%@://%@%@", scheme, host, path];
+}
+
++ (NSString *)albumDescriptionForAwemeModel:(AWEAwemeModel *)awemeModel authorProfileURL:(NSString *)authorProfileURL workURL:(NSString *)workURL {
+    if (!awemeModel) {
+        return nil;
+    }
+
+    NSMutableArray<NSString *> *fields = [NSMutableArray array];
+    AWEUserModel *author = awemeModel.author;
+    NSString *nickname = author.nickname;
+    if ([nickname isKindOfClass:[NSString class]] && nickname.length > 0) {
+        [fields addObject:[NSString stringWithFormat:@"抖音作者：%@", nickname]];
+    }
+
+    NSString *displayID = nil;
+    if ([author respondsToSelector:@selector(uniqueIDForShow)]) {
+        displayID = [author uniqueIDForShow];
+    }
+    if (![displayID isKindOfClass:[NSString class]] || displayID.length == 0) {
+        if ([author respondsToSelector:@selector(tiktokDisplayID)]) {
+            displayID = [author tiktokDisplayID];
+        }
+    }
+    if (![displayID isKindOfClass:[NSString class]] || displayID.length == 0) {
+        displayID = author.shortID;
+    }
+    if ([displayID isKindOfClass:[NSString class]] && displayID.length > 0) {
+        [fields addObject:[NSString stringWithFormat:@"作者 ID：%@", displayID]];
+    }
+
+    NSString *resolvedAuthorProfileURL = authorProfileURL.length > 0 ? authorProfileURL : [self authorProfileURL:author];
+    if ([resolvedAuthorProfileURL isKindOfClass:[NSString class]] && resolvedAuthorProfileURL.length > 0) {
+        [fields addObject:[NSString stringWithFormat:@"作者主页：%@", resolvedAuthorProfileURL]];
+    }
+
+    NSString *caption = nil;
+    if ([awemeModel respondsToSelector:@selector(caption)]) {
+        caption = awemeModel.caption;
+    }
+    if (![caption isKindOfClass:[NSString class]] || caption.length == 0) {
+        caption = awemeModel.descriptionString;
+    }
+    if ([caption isKindOfClass:[NSString class]] && caption.length > 0) {
+        [fields addObject:[NSString stringWithFormat:@"作品文案：%@", caption]];
+    }
+
+    NSString *resolvedWorkURL = [self compactAlbumURL:workURL.length > 0 ? workURL : awemeModel.shareURL];
+    if ([resolvedWorkURL isKindOfClass:[NSString class]] && resolvedWorkURL.length > 0) {
+        [fields addObject:[NSString stringWithFormat:@"作品链接：%@", resolvedWorkURL]];
+    }
+
+    NSNumber *createTime = awemeModel.createTime;
+    if ([createTime isKindOfClass:[NSNumber class]] && createTime.doubleValue > 0) {
+        static NSDateFormatter *formatter = nil;
+        static dispatch_once_t onceToken;
+        dispatch_once(&onceToken, ^{
+          formatter = [[NSDateFormatter alloc] init];
+          formatter.dateFormat = @"yyyy-MM-dd HH:mm:ss";
+          formatter.locale = [NSLocale localeWithLocaleIdentifier:@"en_US_POSIX"];
+        });
+        NSDate *date = [NSDate dateWithTimeIntervalSince1970:createTime.doubleValue];
+        [fields addObject:[NSString stringWithFormat:@"发布时间：%@", [formatter stringFromDate:date]]];
+    }
+
+    if (fields.count == 0) {
+        return nil;
+    }
+    return [fields componentsJoinedByString:@"\n"];
+}
+
+
++ (NSURL *)temporaryImageURLByEmbeddingDescription:(NSString *)albumDescription intoImageAtURL:(NSURL *)imageURL {
+    if (albumDescription.length == 0 || !imageURL) {
+        return nil;
+    }
+
+    CGImageSourceRef source = CGImageSourceCreateWithURL((CFURLRef)imageURL, NULL);
+    if (!source) {
+        return nil;
+    }
+
+    CFStringRef sourceType = CGImageSourceGetType(source);
+    NSString *outputName = [NSString stringWithFormat:@"dyyy_desc_%@.%@", [NSUUID UUID].UUIDString, imageURL.pathExtension.length > 0 ? imageURL.pathExtension : @"jpg"];
+    NSURL *outputURL = [[NSURL fileURLWithPath:NSTemporaryDirectory()] URLByAppendingPathComponent:outputName];
+
+    CGImageDestinationRef destination = CGImageDestinationCreateWithURL((CFURLRef)outputURL, sourceType ?: kUTTypeJPEG, 1, NULL);
+    if (!destination) {
+        CFRelease(source);
+        return nil;
+    }
+
+    NSDictionary *existingProperties = (__bridge_transfer NSDictionary *)CGImageSourceCopyPropertiesAtIndex(source, 0, NULL);
+    NSMutableDictionary *properties = existingProperties ? [existingProperties mutableCopy] : [NSMutableDictionary dictionary];
+
+    NSMutableDictionary *tiff = [properties[(NSString *)kCGImagePropertyTIFFDictionary] mutableCopy] ?: [NSMutableDictionary dictionary];
+    tiff[(NSString *)kCGImagePropertyTIFFImageDescription] = albumDescription;
+    properties[(NSString *)kCGImagePropertyTIFFDictionary] = tiff;
+
+    NSMutableDictionary *iptc = [properties[(NSString *)kCGImagePropertyIPTCDictionary] mutableCopy] ?: [NSMutableDictionary dictionary];
+    iptc[(NSString *)kCGImagePropertyIPTCCaptionAbstract] = albumDescription;
+    properties[(NSString *)kCGImagePropertyIPTCDictionary] = iptc;
+
+    NSMutableDictionary *exif = [properties[(NSString *)kCGImagePropertyExifDictionary] mutableCopy] ?: [NSMutableDictionary dictionary];
+    exif[(NSString *)kCGImagePropertyExifUserComment] = albumDescription;
+    properties[(NSString *)kCGImagePropertyExifDictionary] = exif;
+
+    CGImageDestinationAddImageFromSource(destination, source, 0, (CFDictionaryRef)properties);
+    BOOL finalized = CGImageDestinationFinalize(destination);
+
+    CFRelease(destination);
+    CFRelease(source);
+
+    if (!finalized) {
+        [[NSFileManager defaultManager] removeItemAtPath:outputURL.path error:nil];
+        return nil;
+    }
+    return outputURL;
+}
+
++ (NSArray<AVMetadataItem *> *)metadataItemsByAppendingDescription:(NSString *)albumDescription toItems:(NSArray<AVMetadataItem *> *)items {
+    NSMutableArray<AVMetadataItem *> *result = items ? [items mutableCopy] : [NSMutableArray array];
+    if (albumDescription.length == 0) {
+        return result;
+    }
+
+    AVMutableMetadataItem *quickTimeItem = [AVMutableMetadataItem metadataItem];
+    quickTimeItem.keySpace = AVMetadataKeySpaceQuickTimeMetadata;
+    quickTimeItem.key = AVMetadataQuickTimeMetadataKeyDescription;
+    quickTimeItem.value = albumDescription;
+    [result addObject:quickTimeItem];
+
+    AVMutableMetadataItem *commonItem = [AVMutableMetadataItem metadataItem];
+    commonItem.keySpace = AVMetadataKeySpaceCommon;
+    commonItem.key = AVMetadataCommonKeyDescription;
+    commonItem.value = albumDescription;
+    [result addObject:commonItem];
+
+    return result;
+}
+
++ (void)writeDescription:(NSString *)albumDescription toVideoAtURL:(NSURL *)videoURL completion:(void (^)(NSURL *outputURL))completion {
+    void (^report)(NSURL *) = ^(NSURL *outputURL) {
+        if (completion) {
+            completion(outputURL);
+        }
+    };
+
+    if (albumDescription.length == 0 || !videoURL) {
+        report(nil);
+        return;
+    }
+
+    AVURLAsset *sourceAsset = [AVURLAsset URLAssetWithURL:videoURL options:nil];
+    AVAssetExportSession *export = [[AVAssetExportSession alloc] initWithAsset:sourceAsset presetName:AVAssetExportPresetPassthrough];
+    if (!export || ![export.supportedFileTypes containsObject:AVFileTypeQuickTimeMovie]) {
+        report(nil);
+        return;
+    }
+
+    NSString *outputName = [NSString stringWithFormat:@"dyyy_desc_%@.mov", [NSUUID UUID].UUIDString];
+    NSURL *outputURL = [[NSURL fileURLWithPath:NSTemporaryDirectory()] URLByAppendingPathComponent:outputName];
+    [[NSFileManager defaultManager] removeItemAtPath:outputURL.path error:nil];
+
+    // 直通封装：只重写容器和元数据，不重新编码，画质与体积都不变。
+    export.outputURL = outputURL;
+    export.outputFileType = AVFileTypeQuickTimeMovie;
+    export.metadata = [self metadataItemsByAppendingDescription:albumDescription toItems:sourceAsset.metadata];
+
+    [export exportAsynchronouslyWithCompletionHandler:^{
+      if (export.status == AVAssetExportSessionStatusCompleted) {
+          report(outputURL);
+          return;
+      }
+      [[NSFileManager defaultManager] removeItemAtPath:outputURL.path error:nil];
+      report(nil);
+    }];
+}
 @end
 
 #pragma mark - External C Functions (外部 C 函数)

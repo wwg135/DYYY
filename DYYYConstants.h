@@ -21,4 +21,13 @@
 #define DYYYGeonamesErrorDomain @"com.dyyy.geonames.api.error"
 #define DYYYGeonamesStatusUserInfoKey @"com.dyyy.geonames.api.status"
 
+
+// main 新增设置键
+#define DYYY_SHOW_EXACT_INTERACTION_COUNTS_KEY @"DYYYShowExactInteractionCounts"
+#define DYYY_ALBUM_MEDIA_DESCRIPTION_KEY @"DYYYAlbumMediaDescription"
+#define DYYY_SPEED_BUTTON_STICK_TO_EDGE_KEY @"DYYYSpeedButtonStickToEdge"
+#define DYYY_CLEAR_BUTTON_STICK_TO_EDGE_KEY @"DYYYClearButtonStickToEdge"
+#define DYYY_RESET_SPEED_BUTTON_POSITION_KEY @"DYYYResetSpeedButtonPosition"
+#define DYYY_RESET_CLEAR_BUTTON_POSITION_KEY @"DYYYResetClearButtonPosition"
+
 #endif

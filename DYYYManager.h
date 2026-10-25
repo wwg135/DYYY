@@ -11,6 +11,9 @@
  * 处理UI、媒体下载、保存和视频合成等功能
  */
 @interface DYYYManager : NSObject
++ (void)setAlbumDescriptionContextWithAwemeModel:(AWEAwemeModel *)model;
++ (NSString *)albumDescriptionForAwemeModel:(AWEAwemeModel *)model;
++ (void)saveMedia:(NSURL *)mediaURL mediaType:(MediaType)mediaType albumDescription:(NSString *)albumDescription completion:(void (^)(BOOL success))completion;
 
 #pragma mark - 属性和基础方法
 // 存储文件类型

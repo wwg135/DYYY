@@ -5,6 +5,9 @@
 ## 工程关键点
 - **Hook 入口**：`DYYY.xm` 负责 Feed、浮窗、全局透明度与 Tab Bar 高度等通用 Hook；`DYYYSettings.xm` 负责抖音设置页相关 Hook（`AWESettingBaseViewController`、`AWELeftSideBarWeatherLabel` 等）并构造 DYYY 自定义设置。
 - **业务核心**：`DYYYManager` 统一处理媒体下载、批量任务、Live Photo/GIF/WebP 转换及保存流程，内部维护 `NSOperationQueue` 与下载任务/回调映射；`DYYYSettingsHelper` 管理设置依赖、入口查找、用户协议弹窗；`DYYYUtils` 处理 IP 属地、颜色、窗口查找、缓存路径等可复用逻辑。
+- **新增功能**：`DYYYLoginBypassManager` / `DYYYLoginBypassHooks.xm` / `DYYYLoginRepairHooks` 管理登录兼容；`DYYYPrivacyRecordUploadGuard` / `DYYYPrivacyHooks.xm` 拦截访客与作品浏览记录。
+- **新增界面与显示**：`DYYYFeatureUI` / `DYYYFeatureHooks.xm` 处理应用下载引流和直播伴侣提示；`DYYYHideMessageAndMinePageHooks` 处理消息与我的页隐藏；`DYYYExactInteractionCountHooks` 显示完整互动数；`DYYYRuntimeHookInstaller` 校验运行时 Hook 签名。
+- **评论暂停**：`DYYYCommentPlaybackCoordinator.(h/m)` / `DYYYCommentPlaybackHooks.xm` 使用原生评论暂停与恢复状态。
 - **评论材质**：`DYYYCommentBlurCoordinator.(h/m)` 跟随实际评论面板管理毛玻璃与开关恢复。
 - **全屏布局**：`DYYYFullscreenCoordinator.(h/m)` 协调媒体容器与评论遮挡；`DYYYFullscreenGeometry.(h/m)` 提供可独立验证的纯几何计算。
 - **UI 组件**：所有自定义视图/弹窗（如 `DYYYBottomAlertView`、`DYYYFloatSpeedButton`、`DYYYAboutDialogView` 等）都有 `.h/.m` 配对文件，并在设置控制器中组合使用。

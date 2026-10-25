@@ -2,6 +2,8 @@
 #import "AwemeHeaders.h"
 
 @interface DYYYSettingsHelper : NSObject
++ (AWESettingItemModel *)floatingButtonInputItemForKey:(NSString *)key title:(NSString *)title placeholder:(NSString *)placeholder minimum:(double)minimum maximum:(double)maximum;
++ (AWESettingItemModel *)floatingButtonResetItemForSpeed:(BOOL)isSpeed;
 
 /**
  * 获取用户默认设置（布尔值）
