@@ -6234,6 +6234,11 @@ static void DYYYApplyAvatarFollowPromptSettingsWithRetry(id owner) {
 
 %hook AWEIMFeedVideoQuickReplayInputViewController
 
+- (CGFloat)tableView:(UITableView *)tableView heightForRowAtIndexPath:(NSIndexPath *)indexPath {
+    CGFloat height = %orig;
+    return [DYYYFullscreenCoordinator heightForDetailRow:height table:tableView controller:self];
+}
+
 - (void)viewDidLayoutSubviews {
     %orig;
 
@@ -10548,7 +10553,6 @@ static NSHashTable *processedParentViews = nil;
 
 %hook AWENormalModeTabBar
 
-static Class barBackgroundClass = nil;
 static Class generalButtonClass = nil;
 static Class plusContainerButtonClass = nil;
 static Class plusButtonClass = nil;
@@ -10557,7 +10561,6 @@ static Class tabBarButtonClass = nil;
 
 + (void)initialize {
     if (self == [%c(AWENormalModeTabBar) class]) {
-        barBackgroundClass = NSClassFromString(@"_UIBarBackground");
         generalButtonClass = %c(AWENormalModeTabBarGeneralButton);
         plusContainerButtonClass = %c(AWENormalModeTabBarPlusButton);
         plusButtonClass = %c(AWENormalModeTabBarGeneralPlusButton);
@@ -10680,132 +10683,16 @@ static Class tabBarButtonClass = nil;
         }
     }
 
-    // 背景和分隔线处理
-    BOOL hideBottomBg = DYYYGetBool(@"DYYYHideBottomBg");
-    BOOL enableFullScreen = DYYYGetBool(@"DYYYEnableFullScreen");
-
-    if (hideBottomBg || enableFullScreen) {
-        if (self.skinContainerView) {
-            self.skinContainerView.hidden = YES;
-        }
-
-        BOOL isHomeSelected = NO;
-        BOOL isFriendsSelected = NO;
-
-        if (enableFullScreen && !hideBottomBg) {
-            for (UIView *subview in self.subviews) {
-                if ([subview isKindOfClass:generalButtonClass]) {
-                    AWENormalModeTabBarGeneralButton *button = (AWENormalModeTabBarGeneralButton *)subview;
-                    if (button.status == 2) {
-                        if ([button.accessibilityLabel isEqualToString:@"首页"])
-                            isHomeSelected = YES;
-                        else if ([button.accessibilityLabel containsString:@"朋友"])
-                            isFriendsSelected = YES;
-                    }
-                }
-            }
-        }
-
-        BOOL hideFriendsButton = DYYYGetBool(@"DYYYHideFriendsButton");
-        BOOL shouldHideBackgrounds = hideBottomBg || (enableFullScreen && (isHomeSelected || (isFriendsSelected && !hideFriendsButton)));
-
-        // 单次遍历处理所有背景和分割线
-        for (UIView *subview in self.subviews) {
-            // 跳过底栏按钮
-            if ([subview isKindOfClass:generalButtonClass] || [subview isKindOfClass:plusContainerButtonClass] || [subview isKindOfClass:plusButtonClass] ||
-                [subview isKindOfClass:plusInnerButtonClass]) {
-                continue;
-            }
-            // 隐藏底栏背景
-            if ([subview isKindOfClass:barBackgroundClass] || ([subview isMemberOfClass:[UIView class]] && originalTabBarHeight > 0 && fabs(subview.frame.size.height - gCurrentTabBarHeight) < 0.1)) {
-                subview.hidden = shouldHideBackgrounds;
-            }
-            // 隐藏细分割线
-            if (subview.frame.size.height > 0 && subview.frame.size.height < 1 && subview.frame.size.width > 300) {
-                subview.hidden = enableFullScreen;
-            }
-        }
-    } else {
-        if (self.skinContainerView) {
-            self.skinContainerView.hidden = NO;
-        }
-
-        for (UIView *subview in self.subviews) {
-            if ([subview isKindOfClass:barBackgroundClass] || [subview isMemberOfClass:[UIView class]]) {
-                subview.hidden = NO;
-            }
-        }
-    }
     [DYYYFullscreenCoordinator registerTabBar:self];
 }
 
 - (void)setHidden:(BOOL)hidden {
     %orig(hidden);
-
-    BOOL disableHomeRefresh = DYYYGetBool(@"DYYYDisableHomeRefresh");
-    BOOL enableFullScreen = DYYYGetBool(@"DYYYEnableFullScreen");
-    BOOL hideBottomBg = DYYYGetBool(@"DYYYHideBottomBg");
-    BOOL hideFriendsButton = DYYYGetBool(@"DYYYHideFriendsButton");
-
-    BOOL isHomeSelected = NO;
-    BOOL isFriendsSelected = NO;
-
-    for (UIView *subview in self.subviews) {
-        if ([subview isKindOfClass:generalButtonClass]) {
-            AWENormalModeTabBarGeneralButton *button = (AWENormalModeTabBarGeneralButton *)subview;
-
-            // 禁用首页刷新功能
-            if (disableHomeRefresh && [button.accessibilityLabel isEqualToString:@"首页"]) {
-                button.userInteractionEnabled = (button.status != 2);
-            }
-
-            // 检查当前选中的页
-            if (enableFullScreen && button.status == 2) {
-                if ([button.accessibilityLabel isEqualToString:@"首页"]) {
-                    isHomeSelected = YES;
-                } else if ([button.accessibilityLabel containsString:@"朋友"]) {
-                    isFriendsSelected = YES;
-                }
-            }
-        }
-    }
-
-    if (hideBottomBg || enableFullScreen) {
-        if (self.skinContainerView) {
-            self.skinContainerView.hidden = YES;
-        }
-
-        BOOL shouldHideBackgrounds = NO;
-        if (hideBottomBg) {
-            shouldHideBackgrounds = YES;
-        } else if (enableFullScreen) {
-            shouldHideBackgrounds = isHomeSelected || (isFriendsSelected && !hideFriendsButton);
-        }
-
-        // 处理所有背景和分割线
+    if (DYYYGetBool(@"DYYYDisableHomeRefresh")) {
         for (UIView *subview in self.subviews) {
-            CGFloat subviewHeight = subview.frame.size.height;
-            // 跳过底栏按钮
-            if ([subview isKindOfClass:generalButtonClass] || [subview isKindOfClass:plusContainerButtonClass] || [subview isKindOfClass:plusButtonClass] ||
-                [subview isKindOfClass:plusInnerButtonClass]) {
-                continue;
-            }
-            // 隐藏底栏背景
-            if ([subview isKindOfClass:barBackgroundClass] || ([subview isMemberOfClass:[UIView class]] && originalTabBarHeight > 0 && fabs(subviewHeight - gCurrentTabBarHeight) < 0.1)) {
-                subview.hidden = shouldHideBackgrounds;
-            }
-            // 隐藏细分割线
-            if (subviewHeight > 0 && subviewHeight < 1 && subview.frame.size.width > 300) {
-                subview.hidden = enableFullScreen;
-            }
-        }
-    } else {
-        if (self.skinContainerView) {
-            self.skinContainerView.hidden = NO;
-        }
-        for (UIView *subview in self.subviews) {
-            if ([subview isKindOfClass:barBackgroundClass] || [subview isMemberOfClass:[UIView class]]) {
-                subview.hidden = NO;
+            if ([subview isKindOfClass:generalButtonClass]) {
+                AWENormalModeTabBarGeneralButton *button = (AWENormalModeTabBarGeneralButton *)subview;
+                if ([button.accessibilityLabel isEqualToString:@"首页"]) button.userInteractionEnabled = (button.status != 2);
             }
         }
     }
@@ -11333,13 +11220,7 @@ static Class tabBarButtonClass = nil;
 
     frame = [DYYYFullscreenCoordinator frameForInteractionView:self proposed:frame];
 
-    // 只有原逻辑真正可能改写 frame 时，才查询所属控制器。
-    BOOL needsBlurCheck = enableBlur && frame.origin.x != 0;
-    CGRect superF = enableFS ? self.superview.frame : CGRectZero;
-    CGFloat difference = CGRectGetHeight(superF) - CGRectGetHeight(frame);
-    BOOL needsImageCheck = enableFS && (frame.origin.x == 0 || frame.origin.y == 0) &&
-        CGRectGetHeight(frame) > 0 && difference > 0 && fabs(difference - gCurrentTabBarHeight) < 1.0;
-    if (!needsBlurCheck && !needsImageCheck) {
+    if (!enableBlur || frame.origin.x == 0) {
         %orig(frame);
         return;
     }
@@ -11357,27 +11238,7 @@ static Class tabBarButtonClass = nil;
                      (PlayVCClass2 && [vc isKindOfClass:PlayVCClass2]) ||
                      (PlayVCClass3 && [vc isKindOfClass:PlayVCClass3]));
 
-    if (isPlayVC && enableBlur) {
-        if (frame.origin.x != 0) {
-            return;
-        }
-    }
-
-    if (isPlayVC && enableFS && (![DYYYFullscreenCoordinator usesRecommendedLayoutForController:vc] || [DYYYFullscreenCoordinator isImageContentController:vc])) {
-        if (frame.origin.x != 0 && frame.origin.y != 0) {
-            %orig(frame);
-            return;
-        }
-        if (CGRectGetHeight(superF) > 0 && CGRectGetHeight(frame) > 0 && CGRectGetHeight(frame) < CGRectGetHeight(superF)) {
-            CGFloat diff = CGRectGetHeight(superF) - CGRectGetHeight(frame);
-            if (fabs(diff - gCurrentTabBarHeight) < 1.0) {
-                frame.size.height = CGRectGetHeight(superF);
-            }
-        }
-
-        %orig(frame);
-        return;
-    }
+    if (isPlayVC) return;
     %orig(frame);
 }
 
@@ -11471,11 +11332,6 @@ static Class tabBarButtonClass = nil;
         if ([DYYYFullscreenCoordinator hasCommentInWindow:self.viewIfLoaded.window]) return;
     }
 
-    UIWindow *keyWindow = [DYYYUtils getActiveWindow];
-    if (keyWindow && keyWindow.safeAreaInsets.bottom == 0) {
-        return;
-    }
-
     if (!DYYYGetBool(@"DYYYEnableFullScreen")) {
         return;
     }
@@ -11485,10 +11341,10 @@ static Class tabBarButtonClass = nil;
     }
 
     CGRect frame = self.view.frame;
-    CGFloat screenWidth = [UIScreen mainScreen].bounds.size.width;
-    CGFloat superviewHeight = self.view.superview.frame.size.height;
+    UIView *container = self.view.superview;
+    CGFloat superviewHeight = MAX(0, CGRectGetMaxY(container.bounds) - frame.origin.y);
 
-    if (frame.size.width != screenWidth && frame.size.height < superviewHeight) {
+    if (fabs(frame.size.width - container.bounds.size.width) > 1 || superviewHeight <= 0) {
         return;
     }
 
@@ -11529,7 +11385,7 @@ static Class tabBarButtonClass = nil;
     if (useFullHeight) {
         frame.size.height = superviewHeight;
     } else {
-        frame.size.height = superviewHeight - gCurrentTabBarHeight;
+        frame.size.height = MAX(0, superviewHeight - [DYYYFullscreenCoordinator bottomOccupiedHeightForView:self.view]);
     }
 
     if (fabs(frame.size.height - self.view.frame.size.height) > 0.5) {
@@ -11640,21 +11496,7 @@ static Class tabBarButtonClass = nil;
 - (void)viewDidLayoutSubviews {
     %orig;
     [DYYYFullscreenCoordinator layoutPlayerContainer:self];
-    if (DYYYGetBool(@"DYYYEnableFullScreen") && (![DYYYFullscreenCoordinator usesRecommendedLayoutForController:self] || [DYYYFullscreenCoordinator isImageContentController:self])) {
-        UIView *contentView = self.contentView;
-        if (contentView && contentView.superview) {
-            CGRect frame = contentView.frame;
-            CGFloat parentHeight = contentView.superview.frame.size.height;
 
-            if (frame.size.height == parentHeight - gCurrentTabBarHeight) {
-                frame.size.height = parentHeight;
-                contentView.frame = frame;
-            } else if (frame.size.height == parentHeight - (gCurrentTabBarHeight * 2)) {
-                frame.size.height = parentHeight - gCurrentTabBarHeight;
-                contentView.frame = frame;
-            }
-        }
-    }
 }
 
 - (void)setIsAutoPlay:(BOOL)arg0 {
@@ -11690,21 +11532,7 @@ static Class tabBarButtonClass = nil;
 - (void)viewDidLayoutSubviews {
     %orig;
     [DYYYFullscreenCoordinator layoutPlayerContainer:self];
-    if (DYYYGetBool(@"DYYYEnableFullScreen") && (![DYYYFullscreenCoordinator usesRecommendedLayoutForController:self] || [DYYYFullscreenCoordinator isImageContentController:self])) {
-        UIView *contentView = self.contentView;
-        if (contentView && contentView.superview) {
-            CGRect frame = contentView.frame;
-            CGFloat parentHeight = contentView.superview.frame.size.height;
 
-            if (frame.size.height == parentHeight - gCurrentTabBarHeight) {
-                frame.size.height = parentHeight;
-                contentView.frame = frame;
-            } else if (frame.size.height == parentHeight - (gCurrentTabBarHeight * 2)) {
-                frame.size.height = parentHeight - gCurrentTabBarHeight;
-                contentView.frame = frame;
-            }
-        }
-    }
 }
 
 - (void)setIsAutoPlay:(BOOL)arg0 {
@@ -12448,8 +12276,8 @@ static Class TagViewClass = nil;
     UIView *view = (UIView *)self;
     if (DYYYGetBool(@"DYYYEnableFullScreen")) {
         CGFloat viewWidth = CGRectGetWidth(view.bounds);
-        CGFloat screenWidth = [UIScreen mainScreen].bounds.size.width;
-        if (viewWidth + 0.5f >= screenWidth) {
+        CGFloat containerWidth = view.superview.bounds.size.width;
+        if (containerWidth > 0 && fabs(viewWidth - containerWidth) <= 1) {
             UIViewController *vc = [DYYYUtils firstAvailableViewControllerFromView:view];
             Class playClass = %c(AWEPlayVideoViewController);
             if (playClass && [vc isKindOfClass:playClass] && [DYYYFullscreenCoordinator usesRecommendedLayoutForController:vc] && [DYYYFullscreenCoordinator isImageContentController:vc]) {
@@ -12463,7 +12291,7 @@ static Class TagViewClass = nil;
     }
 
     if (shouldAdjust) {
-        CGFloat offset = gCurrentTabBarHeight > 0 ? gCurrentTabBarHeight : originalTabBarHeight;
+        CGFloat offset = [DYYYFullscreenCoordinator bottomOccupiedHeightForView:view];
         if (offset > 0) {
             center.y -= offset * 0.5;
         }
@@ -12479,8 +12307,8 @@ static Class TagViewClass = nil;
     UIView *view = (UIView *)self;
     if (DYYYGetBool(@"DYYYEnableFullScreen")) {
         CGFloat viewWidth = CGRectGetWidth(view.bounds);
-        CGFloat screenWidth = [UIScreen mainScreen].bounds.size.width;
-        if (viewWidth + 0.5f >= screenWidth) {
+        CGFloat containerWidth = view.superview.bounds.size.width;
+        if (containerWidth > 0 && fabs(viewWidth - containerWidth) <= 1) {
             UIViewController *vc = [DYYYUtils firstAvailableViewControllerFromView:view];
             Class playClass = %c(AWEPlayVideoViewController);
             if (playClass && [vc isKindOfClass:playClass] && [DYYYFullscreenCoordinator usesRecommendedLayoutForController:vc] && [DYYYFullscreenCoordinator isImageContentController:vc]) {
@@ -12494,7 +12322,7 @@ static Class TagViewClass = nil;
     }
 
     if (shouldAdjust) {
-        CGFloat offset = gCurrentTabBarHeight > 0 ? gCurrentTabBarHeight : originalTabBarHeight;
+        CGFloat offset = [DYYYFullscreenCoordinator bottomOccupiedHeightForView:view];
         if (offset > 0) {
             center.y -= offset * 0.5;
         }
@@ -12510,8 +12338,8 @@ static Class TagViewClass = nil;
     UIView *view = (UIView *)self;
     if (DYYYGetBool(@"DYYYEnableFullScreen")) {
         CGFloat viewWidth = CGRectGetWidth(view.bounds);
-        CGFloat screenWidth = [UIScreen mainScreen].bounds.size.width;
-        if (viewWidth + 0.5f >= screenWidth) {
+        CGFloat containerWidth = view.superview.bounds.size.width;
+        if (containerWidth > 0 && fabs(viewWidth - containerWidth) <= 1) {
             UIViewController *vc = [DYYYUtils firstAvailableViewControllerFromView:view];
             Class playClass = %c(AWEPlayVideoViewController);
             if (playClass && [vc isKindOfClass:playClass] && [DYYYFullscreenCoordinator usesRecommendedLayoutForController:vc] && [DYYYFullscreenCoordinator isImageContentController:vc]) {
@@ -12525,7 +12353,7 @@ static Class TagViewClass = nil;
     }
 
     if (shouldAdjust) {
-        CGFloat offset = gCurrentTabBarHeight > 0 ? gCurrentTabBarHeight : originalTabBarHeight;
+        CGFloat offset = [DYYYFullscreenCoordinator bottomOccupiedHeightForView:view];
         if (offset > 0) {
             center.y -= offset * 0.5;
         }
@@ -12604,12 +12432,13 @@ static Class TagViewClass = nil;
 
 - (void)setFrame:(CGRect)frame {
     if (DYYYGetBool(@"DYYYEnableFullScreen")) {
-        CGFloat targetY = frame.origin.y - gCurrentTabBarHeight;
-        CGFloat screenHeightMinusGDiff = [UIScreen mainScreen].bounds.size.height - gCurrentTabBarHeight;
+        CGFloat bottomHeight = [DYYYFullscreenCoordinator bottomOccupiedHeightForView:self];
+        CGFloat targetY = frame.origin.y - bottomHeight;
+        CGFloat screenHeightMinusGDiff = CGRectGetMaxY(self.superview.bounds) - bottomHeight;
 
         CGFloat tolerance = 10.0;
 
-        if (fabs(targetY - screenHeightMinusGDiff) <= tolerance) {
+        if (self.superview && bottomHeight > 0 && fabs(targetY - screenHeightMinusGDiff) <= tolerance) {
             frame.origin.y = targetY;
         }
     }
@@ -12638,22 +12467,7 @@ static Class TagViewClass = nil;
         }
     }
 
-    if (parentVC && ([parentVC isKindOfClass:%c(AWEAwemeDetailTableViewController)] || [parentVC isKindOfClass:%c(AWEAwemeDetailCellViewController)])) {
-        static char kDYCommentHideCacheKey;
-        UIView *target = objc_getAssociatedObject(self, &kDYCommentHideCacheKey);
-        if (!target) {
-            for (UIView *subview in [self subviews]) {
-                if ([subview class] == [UIView class]) {
-                    target = subview;
-                    objc_setAssociatedObject(self, &kDYCommentHideCacheKey, target, OBJC_ASSOCIATION_ASSIGN);
-                    break;
-                }
-            }
-        }
-        if (target) {
-            target.hidden = ([(UIView *)self frame].size.height == gCurrentTabBarHeight);
-        }
-    }
+    [DYYYFullscreenCoordinator layoutBottomInput:self controller:parentVC];
 }
 
 %end

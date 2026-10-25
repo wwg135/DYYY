@@ -1,11 +1,14 @@
 #import "DYYYFullscreenCoordinator.h"
 #import "DYYYFullscreenGeometry.h"
 #import "DYYYUtils.h"
+#import "DYYYFloatingButtonCoordinator.h"
 #import "AwemeHeaders.h"
 #import <objc/runtime.h>
 
 @interface DYYYFullscreenPlayerState : NSObject
 @property(nonatomic, weak) UIViewController *owner;
+@property(nonatomic, assign) CGSize layoutWindowSize;
+@property(nonatomic, assign) UIEdgeInsets layoutSafeArea;
 @property(nonatomic, assign) CGRect nativeFrame;
 @property(nonatomic, assign) CGRect lastAppliedFrame;
 @property(nonatomic, assign) BOOL hasNativeFrame;
@@ -30,11 +33,14 @@
 @property(nonatomic, assign) BOOL imageAdjusted;
 @property(nonatomic, weak) UIImageView *imageContent;
 @property(nonatomic, assign) BOOL mediaHost;
+@property(nonatomic, assign) CGRect mediaHostParentBounds;
+@property(nonatomic, assign) BOOL bottomBarEnabled;
 @property(nonatomic, assign) CGRect nativeHostFrame;
 @property(nonatomic, assign) CGRect fullscreenHostFrame;
 @property(nonatomic, strong) NSMapTable<UIView *, NSDictionary *> *bottomBackgrounds;
 @property(nonatomic, weak) UIView *transparentBottomBar;
 @property(nonatomic, assign) BOOL applyingBottomBackground;
+@property(nonatomic, assign) BOOL updatingBottomBar;
 @end
 @implementation DYYYFullscreenPlayerState
 @end
@@ -63,6 +69,15 @@
     }
     return detail;
 }
++ (UIScrollView *)pagingViewForCell:(UIView *)cell {
+    for (UIView *view = cell.superview; view; view = view.superview) {
+        if ([view isKindOfClass:[UITableView class]] || [view isKindOfClass:[UICollectionView class]]) return (UIScrollView *)view;
+    }
+    return nil;
+}
++ (BOOL)view:(UIView *)view spansWidthOf:(UIView *)container {
+    return view && container && container.bounds.size.width > 0 && fabs(view.bounds.size.width - container.bounds.size.width) <= 1;
+}
 + (BOOL)usesFullscreenLayoutForController:(UIViewController *)controller {
     Class remoteClass = NSClassFromString(@"AFDPlayRemoteFeedTableViewController");
     for (UIViewController *parent = controller; parent; parent = parent.parentViewController) {
@@ -70,27 +85,29 @@
     }
     if ([self usesRecommendedLayoutForController:controller] || [self usesDetailLayoutForController:controller]) return YES;
     UIView *view = controller.viewIfLoaded;
-    UIWindow *window = view.window;
-    if (!window || window.bounds.size.width >= window.bounds.size.height) return NO;
+    if (!view.window) return NO;
     UIView *cell = [self cellForPlayer:view owner:controller];
     if (![cell isKindOfClass:[UITableViewCell class]] && ![cell isKindOfClass:[UICollectionViewCell class]]) return NO;
-    for (UIView *parent = cell.superview; parent && parent != window; parent = parent.superview) {
-        if (![parent isKindOfClass:[UITableView class]] && ![parent isKindOfClass:[UICollectionView class]]) continue;
-        // 新页面按真实分页视口识别，不依赖来源字符串或业务控制器类名。
-        return parent.bounds.size.width >= window.bounds.size.width * 0.8 && parent.bounds.size.height >= window.bounds.size.height * 0.8 &&
-            cell.bounds.size.width >= parent.bounds.size.width * 0.8 && cell.bounds.size.height >= parent.bounds.size.height * 0.8;
+    UIScrollView *pager = [self pagingViewForCell:cell];
+    if (![self view:cell spansWidthOf:pager] || pager.bounds.size.height <= 0) return NO;
+    // 分页能力和实际容器决定是否适配，窗口大小、设备型号不参与分类。
+    if (pager.pagingEnabled) return YES;
+    for (UIViewController *parent = controller; parent; parent = parent.parentViewController) {
+        if ([parent respondsToSelector:@selector(currentVisibleCellIndex)]) return YES;
     }
     return NO;
 }
 + (CGFloat)bottomInsetForDetail:(CGFloat)inset controller:(UIViewController *)controller {
     if (![NSThread isMainThread] || !DYYYGetBool(@"DYYYEnableFullScreen") || ![self usesDetailLayoutForController:controller]) return inset;
     UIView *view = controller.viewIfLoaded;
-    CGSize size = view.bounds.size;
-    if (view.window && (fabs(size.width - view.window.bounds.size.width) > 0.5 || fabs(size.height - view.window.bounds.size.height) > 0.5)) return inset;
-    if (size.width <= 0 || size.height <= 0) size = [UIScreen mainScreen].bounds.size;
-    // 基础边距是原生视口与行高的共同输入，不能只改列表 frame。
-    // 不依赖输入栏是否已创建，避免首条与复用 cell 缓存不同高度。
-    return size.width < size.height && inset > 0 && inset < size.height * 0.25 ? 0 : inset;
+    if (!view.window || CGRectIsEmpty(view.bounds)) return inset;
+    // 行高只以本页原生视口为准；未加载时保留原生值，显示后统一修正缓存。
+    return inset > 0 ? 0 : inset;
+}
++ (CGFloat)heightForDetailRow:(CGFloat)height table:(UITableView *)table controller:(UIViewController *)controller {
+    if (![NSThread isMainThread] || !DYYYGetBool(@"DYYYEnableFullScreen") || ![self usesDetailLayoutForController:controller]) return height;
+    // 行高与 UITableView 分页视口使用同一尺寸，预加载时也不扣第二次底栏。
+    return height > 0 && table.bounds.size.height > 0 ? table.bounds.size.height : height;
 }
 + (void)reconcileDetailPaging:(UIViewController *)controller {
     if (![NSThread isMainThread] || !DYYYGetBool(@"DYYYEnableFullScreen") || ![self usesDetailLayoutForController:controller]) return;
@@ -99,7 +116,7 @@
     AWEAwemeDetailTableViewController *detail = (AWEAwemeDetailTableViewController *)controller;
     UITableView *table = [detail tableView];
     CGFloat height = table.bounds.size.height;
-    if (!table.window || fabs(height - table.window.bounds.size.height) > 0.5 || table.bounds.size.width >= height ||
+    if (!table.window || height <= 0 || table.bounds.size.width <= 0 || [self hasCommentInWindow:table.window] ||
         table.tracking || table.dragging || table.decelerating || table.numberOfSections != 1) return;
     DYYYFullscreenPlayerState *state = objc_getAssociatedObject(table, @selector(state:));
     if (state.applying) return;
@@ -132,43 +149,60 @@
 }
 + (void)layoutBottomBar:(UIView *)bar controller:(UIViewController *)controller enabled:(BOOL)enabled {
     DYYYFullscreenPlayerState *state = [self state:bar];
-    state.owner = controller;
-    if (!enabled) {
-        for (UIView *view in state.bottomBackgrounds.keyEnumerator.allObjects) {
-            NSDictionary *saved = [state.bottomBackgrounds objectForKey:view];
-            DYYYFullscreenPlayerState *target = [self state:view];
-            target.applyingBottomBackground = YES;
-            view.backgroundColor = saved[@"color"] == [NSNull null] ? nil : saved[@"color"];
-            view.opaque = [saved[@"opaque"] boolValue];
-            if ([view isKindOfClass:[UIVisualEffectView class]]) ((UIVisualEffectView *)view).effect = saved[@"effect"] == [NSNull null] ? nil : saved[@"effect"];
-            target.transparentBottomBar = nil;
-            target.applyingBottomBackground = NO;
-        }
-        state.bottomBackgrounds = nil;
-        return;
-    }
-    if (!state.bottomBackgrounds) state.bottomBackgrounds = [NSMapTable weakToStrongObjectsMapTable];
-    NSMutableArray<UIView *> *queue = [NSMutableArray arrayWithObject:bar];
-    for (NSUInteger i = 0; i < queue.count && i < 32; i++) {
-        UIView *view = queue[i];
-        BOOL background = view == bar || [view isKindOfClass:[UIVisualEffectView class]] ||
-            [NSStringFromClass(view.class) containsString:@"Background"] ||
-            ([view isMemberOfClass:[UIView class]] && view.bounds.size.width >= bar.bounds.size.width * 0.8);
-        if (background) {
-            if (![state.bottomBackgrounds objectForKey:view]) {
-                UIVisualEffect *effect = [view isKindOfClass:[UIVisualEffectView class]] ? ((UIVisualEffectView *)view).effect : nil;
-                [state.bottomBackgrounds setObject:@{@"color": view.backgroundColor ?: [NSNull null], @"opaque": @(view.opaque), @"effect": effect ?: [NSNull null]} forKey:view];
+    if (state.updatingBottomBar) return;
+    state.updatingBottomBar = YES;
+    @try {
+        enabled = enabled && !CGRectIsEmpty(bar.bounds);
+        state.owner = controller;
+        state.bottomBarEnabled = enabled;
+        if (!enabled) {
+            for (UIView *view in state.bottomBackgrounds.keyEnumerator.allObjects) {
+                NSDictionary *saved = [state.bottomBackgrounds objectForKey:view];
+                DYYYFullscreenPlayerState *target = [self state:view];
+                target.applyingBottomBackground = YES;
+                view.backgroundColor = saved[@"color"] == [NSNull null] ? nil : saved[@"color"];
+                view.opaque = [saved[@"opaque"] boolValue];
+                if (view != bar && saved[@"hidden"] && view.hidden != [saved[@"hidden"] boolValue]) view.hidden = [saved[@"hidden"] boolValue];
+                if ([view isKindOfClass:[UIVisualEffectView class]]) ((UIVisualEffectView *)view).effect = saved[@"effect"] == [NSNull null] ? nil : saved[@"effect"];
+                target.transparentBottomBar = nil;
+                target.applyingBottomBackground = NO;
             }
-            DYYYFullscreenPlayerState *target = [self state:view];
-            target.transparentBottomBar = bar;
-            target.applyingBottomBackground = YES;
-            if (view.backgroundColor && CGColorGetAlpha(view.backgroundColor.CGColor) > 0) view.backgroundColor = UIColor.clearColor;
-            if (view.opaque) view.opaque = NO;
-            if ([view isKindOfClass:[UIVisualEffectView class]] && ((UIVisualEffectView *)view).effect) ((UIVisualEffectView *)view).effect = nil;
-            target.applyingBottomBackground = NO;
+            state.bottomBackgrounds = nil;
+            return;
         }
-        if (queue.count < 32 && ![view isKindOfClass:[UIControl class]]) [queue addObjectsFromArray:view.subviews];
+        if (!state.bottomBackgrounds) state.bottomBackgrounds = [NSMapTable weakToStrongObjectsMapTable];
+        NSMutableArray<UIView *> *queue = [NSMutableArray arrayWithObject:bar];
+        for (NSUInteger i = 0; i < queue.count && i < 32; i++) {
+            UIView *view = queue[i];
+            CGRect rect = [view convertRect:view.bounds toView:bar];
+            BOOL coversBar = rect.size.width >= bar.bounds.size.width - 1 && rect.size.height >= bar.bounds.size.height - 1;
+            BOOL decoration = ![view isKindOfClass:[UIControl class]] && ![view isKindOfClass:[UILabel class]];
+            BOOL background = view == bar || [view isKindOfClass:[UIVisualEffectView class]] ||
+                [NSStringFromClass(view.class) containsString:@"Background"] || (decoration && coversBar);
+            if (background) {
+                UIView *skin = [bar respondsToSelector:@selector(skinContainerView)] ? [(AWENormalModeTabBar *)bar skinContainerView] : nil;
+                BOOL backgroundOnly = view != bar && (view == skin || [NSStringFromClass(view.class) containsString:@"Background"] || [view isKindOfClass:[UIImageView class]]);
+                if (![state.bottomBackgrounds objectForKey:view]) {
+                    UIVisualEffect *effect = [view isKindOfClass:[UIVisualEffectView class]] ? ((UIVisualEffectView *)view).effect : nil;
+                    NSMutableDictionary *saved = [@{@"color": view.backgroundColor ?: [NSNull null], @"opaque": @(view.opaque), @"effect": effect ?: [NSNull null]} mutableCopy];
+                    if (coversBar && backgroundOnly) saved[@"hidden"] = @(view.hidden);
+                    [state.bottomBackgrounds setObject:saved forKey:view];
+                }
+                DYYYFullscreenPlayerState *target = [self state:view];
+                target.transparentBottomBar = bar;
+                target.applyingBottomBackground = YES;
+                if (view.backgroundColor && CGColorGetAlpha(view.backgroundColor.CGColor) > 0) view.backgroundColor = UIColor.clearColor;
+                if (view.opaque) view.opaque = NO;
+                if (coversBar && backgroundOnly && !view.hidden) view.hidden = YES;
+                if ([view isKindOfClass:[UIVisualEffectView class]] && ((UIVisualEffectView *)view).effect) ((UIVisualEffectView *)view).effect = nil;
+                target.applyingBottomBackground = NO;
+            }
+            if (queue.count < 32 && ![view isKindOfClass:[UIControl class]]) [queue addObjectsFromArray:view.subviews];
+        }
+    } @finally {
+        state.updatingBottomBar = NO;
     }
+
 }
 + (UIColor *)backgroundForBottomView:(UIView *)view proposed:(UIColor *)color {
     DYYYFullscreenPlayerState *target = objc_getAssociatedObject(view, @selector(state:));
@@ -180,13 +214,31 @@
     NSMutableDictionary *updated = [saved mutableCopy];
     updated[@"color"] = color ?: [NSNull null];
     [state.bottomBackgrounds setObject:updated forKey:view];
-    return DYYYGetBool(@"DYYYEnableFullScreen") && bar.window && state.owner.viewIfLoaded.window == bar.window ? UIColor.clearColor : color;
+    return state.bottomBarEnabled && bar.window ? UIColor.clearColor : color;
+}
++ (void)layoutBottomInput:(UIView *)view controller:(UIViewController *)controller {
+    if (![NSThread isMainThread]) return;
+    [self layoutBottomBar:view controller:controller enabled:DYYYGetBool(@"DYYYEnableFullScreen") && [self usesDetailLayoutForController:controller]];
+}
++ (CGFloat)bottomOccupiedHeightForView:(UIView *)view {
+    UIWindow *window = view.window;
+    if (!window) return 0;
+    UIViewController *controller = [DYYYUtils firstAvailableViewControllerFromView:view];
+    for (UIViewController *owner = controller; owner; owner = owner.parentViewController) {
+        if (![owner respondsToSelector:@selector(activeBottomBar)]) continue;
+        UIView *bar = [(AWEAwemeDetailTableViewController *)owner activeBottomBar];
+        if (bar.window == window && bar.bounds.size.height > 0) return bar.bounds.size.height;
+    }
+    // 评论会隐藏底栏，尺寸仍以同一窗口中的真实栏为准。
+    for (UIView *bar in [self tabBars].allObjects) if (bar.window == window && bar.bounds.size.height > 0) return bar.bounds.size.height;
+    return 0;
 }
 + (BOOL)layoutNativeInteraction:(UIViewController *)controller {
     if (![NSThread isMainThread]) return NO;
     UIView *view = controller.viewIfLoaded;
     UIView *parent = view.superview;
-    if (!view.window || !parent || view.bounds.size.width < parent.bounds.size.width * 0.8 || view.window.bounds.size.width >= view.window.bounds.size.height) return NO;
+    if (view.window) [[self interactions] addObject:controller];
+    if (!view.window || ![self view:view spansWidthOf:parent]) return NO;
     BOOL enabled = DYYYGetBool(@"DYYYEnableFullScreen");
     BOOL legacy = [[self contentSourceForController:controller] isEqualToString:@"co_play_watch"];
     for (UIViewController *owner = controller; owner; owner = owner.parentViewController) {
@@ -196,12 +248,14 @@
         if (!enabled) { [self layoutBottomBar:bar controller:controller enabled:NO]; continue; }
         if (bar.window != view.window || ![self visible:bar]) continue;
         CGRect barRect = [bar convertRect:bar.bounds toView:view.window];
-        if (barRect.size.width < view.window.bounds.size.width * 0.8 || barRect.size.height >= view.window.bounds.size.height * 0.25 ||
-            fabs(CGRectGetMaxY(barRect) - CGRectGetMaxY(view.window.bounds)) >= 1) continue;
+        UIView *root = owner.viewIfLoaded;
+        CGRect rootRect = [root convertRect:root.bounds toView:view.window];
+        if (!root || barRect.size.height <= 0 || barRect.size.height >= rootRect.size.height ||
+            fabs(barRect.size.width - rootRect.size.width) > 1 || fabs(CGRectGetMaxY(barRect) - CGRectGetMaxY(rootRect)) > 1) continue;
         [self layoutBottomBar:bar controller:controller enabled:YES];
         if (legacy) return NO;
         CGRect frame = view.frame;
-        CGFloat bottom = CGRectGetMinY(barRect) - CGRectGetMinY(view.window.bounds);
+        CGFloat bottom = CGRectGetMinY([bar convertRect:bar.bounds toView:parent]);
         CGFloat height = MIN(CGRectGetMaxY(parent.bounds), bottom) - frame.origin.y;
         if (height <= 0) return NO;
         if (fabs(frame.size.height - height) > 0.25) { frame.size.height = height; view.frame = frame; }
@@ -259,9 +313,23 @@
         for (UIView *image in [self images].allObjects) if (image.window) [image setNeedsLayout];
     });
 }
++ (void)layoutRootTabBar:(UIView *)bar {
+    BOOL playback = NO;
+    DYYYFullscreenPlayerState *state = objc_getAssociatedObject(bar, @selector(state:));
+    if ([self hasCommentInWindow:bar.window] && state.bottomBarEnabled) playback = YES;
+    if (!playback) for (UIViewController *controller in [self interactions].allObjects) {
+        if (controller.viewIfLoaded.window != bar.window || ![self usesFullscreenLayoutForController:controller] ||
+            ![DYYYFloatingButtonCoordinator isControllerVisible:controller]) continue;
+        playback = YES;
+        break;
+    }
+    BOOL enabled = DYYYGetBool(@"DYYYHideBottomBg") || (DYYYGetBool(@"DYYYEnableFullScreen") && playback);
+    [self layoutBottomBar:bar controller:nil enabled:enabled];
+}
 + (void)registerTabBar:(UIView *)tabBar {
     if (![NSThread isMainThread]) return;
     [[self tabBars] addObject:tabBar];
+    [self layoutRootTabBar:tabBar];
     CGRect rect = tabBar.window ? [tabBar convertRect:tabBar.bounds toView:tabBar.window] : CGRectNull;
     NSString *signature = [NSString stringWithFormat:@"%p/%@/%d", tabBar.window, NSStringFromCGRect(rect), [self visible:tabBar]];
     NSString *previous = objc_getAssociatedObject(tabBar, @selector(registerTabBar:));
@@ -274,8 +342,9 @@
     if (![NSThread isMainThread] || ![self usesRecommendedLayoutForController:controller]) return;
     UIView *view = controller.viewIfLoaded;
     UIView *parent = view.superview;
-    if (!view.window || !parent || view.bounds.size.width < parent.bounds.size.width * 0.8) return;
+    if (!view.window || ![self view:view spansWidthOf:parent]) return;
     [[self interactions] addObject:controller];
+    for (UIView *bar in [self tabBars].allObjects) if (bar.window == view.window) [self layoutRootTabBar:bar];
     if ([self isImageContentController:controller]) return;
     DYYYFullscreenPlayerState *state = [self state:view];
     state.owner = controller;
@@ -288,7 +357,7 @@
         target.size.height = MAX(0, CGRectGetMaxY(parent.bounds) - target.origin.y);
         CGRect guide = [parent convertRect:target toView:view.window];
         // Feed 的前后两页在滚动中有不同的窗口 y；先移除页平移，
-        // 否则 Tab 裁剪会把互动层高度从 896 连续改到 827，反过来干扰滚动布局。
+        // 否则 Tab 裁剪会随翻页持续改变互动层高度，反过来干扰滚动布局。
         CGFloat pageTranslation = CGRectGetMinY([parent convertRect:parent.bounds toView:view.window]) - CGRectGetMinY(view.window.bounds);
         guide.origin.y -= pageTranslation;
         for (UIView *tabBar in [self tabBars].allObjects) {
@@ -372,9 +441,8 @@
 }
 + (BOOL)keepsMediaHostFullscreen:(UIView *)view state:(DYYYFullscreenPlayerState *)state {
     return state.mediaHost && !state.applying && state.normalWindow == view.window &&
-        view.window.bounds.size.width < view.window.bounds.size.height &&
-        fabs(state.fullscreenHostFrame.size.width - view.window.bounds.size.width) < 1 &&
-        DYYYGetBool(@"DYYYEnableFullScreen") && [self usesFullscreenLayoutForController:state.owner] && ![self isImageContentController:state.owner];
+        CGRectEqualToRect(state.mediaHostParentBounds, view.superview.bounds) &&
+        DYYYGetBool(@"DYYYEnableFullScreen") && [self usesFullscreenLayoutForController:state.owner];
 }
 + (CGRect)boundsForMediaHost:(UIView *)view proposed:(CGRect)bounds {
     DYYYFullscreenPlayerState *state = objc_getAssociatedObject(view, @selector(state:));
@@ -402,7 +470,7 @@
         return state.fullscreenHostFrame;
     }
     if (state.closedInteractionSize.height > 0 && [self usesRecommendedLayoutForController:state.owner] && state.normalWindow == view.window &&
-        frame.size.width >= state.closedInteractionSize.width * 0.8 &&
+        fabs(frame.size.width - state.closedInteractionSize.width) <= 1 &&
         DYYYGetBool(@"DYYYEnableFullScreen") && [self hasCommentInWindow:view.window]) {
         frame.size.height = state.closedInteractionSize.height;
     }
@@ -444,6 +512,19 @@
         state = [DYYYFullscreenPlayerState new];
         objc_setAssociatedObject(player, @selector(state:), state, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
     }
+    UIWindow *window = player.window;
+    if (window && (!CGSizeEqualToSize(state.layoutWindowSize, window.bounds.size) || !UIEdgeInsetsEqualToEdgeInsets(state.layoutSafeArea, window.safeAreaInsets))) {
+        state.layoutWindowSize = window.bounds.size;
+        state.layoutSafeArea = window.safeAreaInsets;
+        state.hasNativeFrame = NO;
+        state.hasNormalWindowFrame = NO;
+        state.normalRenderSize = CGSizeZero;
+        state.hasClosedImageTransform = NO;
+        state.imageAdjusted = NO;
+        state.closedInteractionSize = CGSizeZero;
+        state.hasCaptionFrame = NO;
+        state.captionAdjusted = NO;
+    }
     return state;
 }
 + (BOOL)visible:(UIView *)view {
@@ -471,10 +552,9 @@
 }
 + (UIView *)cellForPlayer:(UIView *)player owner:(UIViewController *)owner {
     UIView *cell = nil;
-    UIWindow *window = player.window;
     for (UIView *view = player.superview; view && ![view isKindOfClass:[UIWindow class]]; view = view.superview) {
         if (([view isKindOfClass:[UITableViewCell class]] || [view isKindOfClass:[UICollectionViewCell class]]) &&
-            view.bounds.size.width >= window.bounds.size.width * 0.8 && view.bounds.size.height >= window.bounds.size.height * 0.5) cell = view;
+            [self view:view spansWidthOf:[self pagingViewForCell:view]]) cell = view;
     }
     return cell ?: owner.parentViewController.viewIfLoaded.superview ?: owner.viewIfLoaded.superview;
 }
@@ -520,9 +600,9 @@
         CGRect normal = [DYYYFullscreenGeometry translateRect:state.normalWindowFrame fromReference:state.normalCellWindowFrame toReference:reference];
         if (!CGRectIsNull(normal)) return [player.superview convertRect:normal fromView:window];
     }
-    if (!owner || !cell || cell.window != window || !player.superview || window.bounds.size.width >= window.bounds.size.height) return native;
+    if (!owner || !cell || cell.window != window || !player.superview) return native;
     CGRect viewport = CGRectIntersection([cell convertRect:cell.bounds toView:window], window.bounds);
-    if (CGRectIsNull(viewport) || viewport.size.width < window.bounds.size.width * 0.8) return native;
+    if (CGRectIsNull(viewport) || CGRectIsEmpty(viewport)) return native;
     CGSize media = CGSizeZero;
     if ([owner respondsToSelector:@selector(getPlayerVideoSize)]) media = [(AWEPlayVideoViewController *)owner getPlayerVideoSize];
     if (media.width <= 0 || media.height <= 0) {
@@ -626,7 +706,7 @@
     if (![NSThread isMainThread] || ![controller respondsToSelector:@selector(contentView)]) return;
     UIView *view = controller.viewIfLoaded;
     if (!view.window || !view.superview) return;
-    BOOL enabled = DYYYGetBool(@"DYYYEnableFullScreen") && [self usesFullscreenLayoutForController:controller] && ![self isImageContentController:controller];
+    BOOL enabled = DYYYGetBool(@"DYYYEnableFullScreen") && [self usesFullscreenLayoutForController:controller];
     UIView *content = [(AWEDPlayerViewController_Merge *)controller contentView];
     for (UIView *host in content && content != view ? @[view, content] : @[view]) {
         DYYYFullscreenPlayerState *state = objc_getAssociatedObject(host, @selector(state:));
@@ -639,17 +719,16 @@
             continue;
         }
         UIView *parent = host.superview;
-        if (!parent || view.window.bounds.size.width >= view.window.bounds.size.height ||
-            parent.bounds.size.width < view.window.bounds.size.width * 0.8 || !CGAffineTransformIsIdentity(host.transform)) continue;
-        if (!state.mediaHost && current.size.width < parent.bounds.size.width * 0.8) continue;
+        if (!parent || CGRectIsEmpty(parent.bounds) || !CGAffineTransformIsIdentity(host.transform)) continue;
+        if (!state.mediaHost && ![self view:host spansWidthOf:parent]) continue;
         state = [self state:host];
-        if (!state.mediaHost || state.normalWindow != view.window) {
+        if (!state.mediaHost || state.normalWindow != view.window || !CGRectEqualToRect(state.mediaHostParentBounds, parent.bounds)) {
             state.nativeHostFrame = current;
             state.fullscreenHostFrame = current;
         }
-        CGRect target = state.fullscreenHostFrame;
-        target.size.height = MAX(target.size.height, CGRectGetMaxY(parent.bounds) - target.origin.y);
+        CGRect target = parent.bounds;
         state.mediaHost = YES;
+        state.mediaHostParentBounds = parent.bounds;
         state.owner = controller;
         state.normalWindow = view.window;
         state.fullscreenHostFrame = target;
@@ -706,7 +785,7 @@
     if (![self usesFullscreenLayoutForController:owner]) return native;
     UIWindow *window = view.window;
     UIView *cell = [self cellForPlayer:view owner:owner];
-    if (!cell || cell.window != window || window.bounds.size.width >= window.bounds.size.height) return native;
+    if (!cell || cell.window != window) return native;
     CGRect viewport = CGRectIntersection([cell convertRect:cell.bounds toView:window], window.bounds);
     CGRect panel = [self panelInWindow:window viewport:viewport];
     if (CGRectIsNull(panel)) {

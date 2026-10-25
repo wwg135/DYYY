@@ -8,9 +8,12 @@
 + (BOOL)usesFullscreenLayoutForController:(UIViewController *)controller;
 + (CGFloat)bottomInsetForDetail:(CGFloat)inset controller:(UIViewController *)controller;
 + (void)reconcileDetailPaging:(UIViewController *)controller;
++ (CGFloat)heightForDetailRow:(CGFloat)height table:(UITableView *)table controller:(UIViewController *)controller;
 + (BOOL)layoutNativeInteraction:(UIViewController *)controller;
 + (BOOL)isImageContentController:(UIViewController *)controller;
 + (void)registerTabBar:(UIView *)tabBar;
++ (CGFloat)bottomOccupiedHeightForView:(UIView *)view;
++ (void)layoutBottomInput:(UIView *)view controller:(UIViewController *)controller;
 + (void)layoutInteraction:(UIViewController *)controller;
 + (void)layoutInformationLabel:(UIView *)label;
 + (void)rememberInteractionGuide:(UIViewController *)controller;

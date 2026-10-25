@@ -4,7 +4,8 @@
 @implementation DYYYFullscreenGeometry
 + (CGRect)translateRect:(CGRect)rect fromReference:(CGRect)previous toReference:(CGRect)current {
     if (CGRectIsNull(rect) || CGRectIsInfinite(rect) || CGRectIsEmpty(previous) || CGRectIsInfinite(previous) ||
-        CGRectIsEmpty(current) || CGRectIsInfinite(current)) return CGRectNull;
+        CGRectIsEmpty(current) || CGRectIsInfinite(current) ||
+        fabs(previous.size.width - current.size.width) > 0.5 || fabs(previous.size.height - current.size.height) > 0.5) return CGRectNull;
     // 基准来自稳定的 Feed cell，只抵消翻页位移，不继承评论内部宿主的缩放。
     return CGRectOffset(rect, current.origin.x - previous.origin.x, current.origin.y - previous.origin.y);
 }
